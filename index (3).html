@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zaib Studio — AI Caption & Text Animation</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@700&family=Barlow+Condensed:wght@700;900&family=DM+Sans:wght@400;500;700;900&family=Space+Mono:wght@700&family=Montserrat:wght@400;700;900&family=Anton&family=Righteous&family=Permanent+Marker&family=Russo+One&family=Exo+2:wght@700;900&family=Rajdhani:wght@700&family=Teko:wght@700&family=Fjalla+One&family=Black+Han+Sans&family=Bungee&family=Audiowide&family=Orbitron:wght@700;900&family=Play:wght@700&display=swap" rel="stylesheet"/>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut, signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const cfg = {
+  apiKey:"AIzaSyDX_Z7L6V6hOZEjJj94EjIKucvHY9JxHCM",
+  authDomain:"zaib-caption-studio.firebaseapp.com",
+  projectId:"zaib-caption-studio",
+  storageBucket:"zaib-caption-studio.firebasestorage.app",
+  messagingSenderId:"767878521082",
+  appId:"1:767878521082:web:b20908c5a208973928a943"
+};
+
+const app = initializeApp(cfg);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const gprov = new GoogleAuthProvider();
+const AKEY = "f138ce4d68b44c73bd16f8a2acfb2052";
+
+const PLANS = {
+  free:    {min:10, styles:3, exports:['srt','vtt'], watermark:true, animations:5},
+  starter: {min:60, styles:8, exports:['srt','vtt','mp4'], watermark:false, animations:20},
+  pro:     {min:300, styles:99, exports:['srt','vtt','mp4','alpha','png'], watermark:false, animations:999},
+  studio:  {min:720, styles:99, exports:['srt','vtt','mp4','alpha','png'], watermark:false, animations:999}
+};
+
+let CU = null, UD = null, UP = 'free';
+let currentFile = null, captions = [];
+let currentStyle = 'beast', currentFont = 'Bebas Neue', currentColor = '#ffcc00', currentColor2 = '#ff3c6e';
+let previewText = 'ZAIB_STUDIO', fontSize = 64, outlineSize = 3, shadowSize = 6;
+let bgType = 'black', bgColor = '#000000';
+let animRunning = true, animT = 0, animRAF = null;
+
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    CU = user;
+    const snap = await getDoc(doc(db,'users',user.uid));
+    if (!snap.exists()) {
+      await setDoc(doc(db,'users',user.uid), {uid:user.uid,email:user.email,name:user.displayName||user.email.split('@')[0],plan:'free',minutesUsed:0,minutesLimit:10,createdAt:serverTimestamp()});
+      UD = (await getDoc(doc(db,'users',user.uid))).data();
+    } else { UD = snap.data(); }
+    UP = UD.plan || 'free';
+    showApp();
+  } else {
+    showAuth();
+  }
+});
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'flex';
+  document.getElementById('uName').textContent = UD.name || CU.email.split('@')[0];
+  document.getElementById('uPlan').textContent = UP.toUpperCase();
+  const used = UD.minutesUsed||0, limit = PLANS[UP].min;
+  document.getElementById('usedMin').textContent = used;
+  document.getElementById('limitMin').textContent = limit;
+  document.getElementById('usageBar').style.width = Math.min((used/limit)*100,100)+'%';
+  lockFreeFeatures();
+  startPreviewAnim();
+}
+
+function showAuth() {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+}
+
+function lockFreeFeatures() {
+  if (UP !== 'free') return;
+  document.querySelectorAll('.style-card').forEach((c,i) => { if(i>=3) c.classList.add('locked'); });
+  document.querySelectorAll('.font-item').forEach((f,i) => { if(i>=10) f.classList.add('locked'); });
+  document.getElementById('freeBanner').style.display = 'flex';
+}
+
+// AUTH
+window.gLogin = async () => {
+  try {
+    const r = await signInWithPopup(auth, gprov);
+    await setDoc(doc(db,'users',r.user.uid), {uid:r.user.uid,email:r.user.email,name:r.user.displayName,plan:'free',minutesUsed:0,minutesLimit:10,createdAt:serverTimestamp()},{merge:true});
+  } catch(e) { showErr(e.message); }
+};
+
+window.emailAuth = async (mode) => {
+  const em = document.getElementById('authEmail').value.trim();
+  const pw = document.getElementById('authPass').value;
+  if(!em||!pw) { showErr('Email aur password likhein!'); return; }
+  try {
+    if(mode==='login') { await signInWithEmailAndPassword(auth,em,pw); }
+    else { const r = await createUserWithEmailAndPassword(auth,em,pw); await setDoc(doc(db,'users',r.user.uid),{uid:r.user.uid,email:r.user.email,name:em.split('@')[0],plan:'free',minutesUsed:0,minutesLimit:10,createdAt:serverTimestamp()}); }
+  } catch(e) {
+    if(e.code==='auth/email-already-in-use') showErr('Email already registered!');
+    else if(e.code==='auth/invalid-credential') showErr('Email ya password galat!');
+    else showErr(e.message);
+  }
+};
+
+window.doLogout = async () => { await signOut(auth); };
+function showErr(m) { const e=document.getElementById('authErr'); e.textContent=m; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
+
+// FILE UPLOAD
+window.handleFile = (file) => {
+  if(!file) return;
+  const lim = PLANS[UP];
+  if((UD.minutesUsed||0) >= lim.min) { showUpgrade(); return; }
+  currentFile = file;
+  document.getElementById('uploadZone').classList.add('has-file');
+  document.getElementById('uIcon').textContent = '✅';
+  document.getElementById('uTitle').textContent = file.name;
+  document.getElementById('uSub').textContent = (file.size/1024/1024).toFixed(1)+' MB';
+  const vid = document.getElementById('vidPlayer');
+  vid.src = URL.createObjectURL(file);
+  vid.style.display = 'block';
+  document.getElementById('vidPlaceholder').style.display = 'none';
+  toast('🎬 '+file.name+' loaded!');
+};
+
+// GENERATE CAPTIONS
+window.generateCaptions = async () => {
+  if(!currentFile) { toast('⚠️ Video upload karo pehle!'); return; }
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  try {
+    btn.innerHTML = '<span class="sp"></span> Uploading...';
+    toast('📤 Uploading...');
+    const upRes = await fetch('https://api.assemblyai.com/v2/upload',{method:'POST',headers:{authorization:AKEY},body:currentFile});
+    const upData = await upRes.json();
+
+    btn.innerHTML = '<span class="sp"></span> Transcribing...';
+    toast('🎙 Transcribing...');
+    const lang = document.getElementById('langSel').value;
+    const trRes = await fetch('https://api.assemblyai.com/v2/transcript',{method:'POST',headers:{authorization:AKEY,'content-type':'application/json'},body:JSON.stringify({audio_url:upData.upload_url,language_code:lang==='ur'?'ur':lang==='hi'?'hi':'en',punctuate:true})});
+    const trData = await trRes.json();
+
+    btn.innerHTML = '<span class="sp"></span> Processing...';
+    let result;
+    while(true) {
+      await new Promise(r=>setTimeout(r,3000));
+      const p = await fetch('https://api.assemblyai.com/v2/transcript/'+trData.id,{headers:{authorization:AKEY}});
+      result = await p.json();
+      if(result.status==='completed') break;
+      if(result.status==='error') throw new Error(result.error);
+    }
+
+    captions = [];
+    const words = result.words || [];
+    const chunkSize = 5;
+    for(let i=0;i<words.length;i+=chunkSize) {
+      const chunk = words.slice(i,i+chunkSize);
+      captions.push({text:chunk.map(w=>w.text).join(' '),start:chunk[0].start/1000,end:chunk[chunk.length-1].end/1000});
+    }
+    renderCaptions();
+    if(captions.length) { previewText = captions[0].text; updatePreview(); }
+
+    const dur = Math.ceil((result.audio_duration||60)/60);
+    await updateDoc(doc(db,'users',CU.uid),{minutesUsed:increment(dur)});
+
+    btn.innerHTML = '✅ Done!';
+    btn.style.background = 'linear-gradient(135deg,#34c759,#30d158)';
+    toast('🎉 '+captions.length+' captions ready!');
+    setTimeout(()=>{btn.innerHTML='⚡ Generate';btn.style.background='';btn.disabled=false;},3000);
+  } catch(e) {
+    toast('❌ '+e.message);
+    btn.innerHTML='⚡ Generate'; btn.style.background=''; btn.disabled=false;
+  }
+};
+
+function renderCaptions() {
+  const list = document.getElementById('captionList');
+  const tl = document.getElementById('tlSegs');
+  list.innerHTML=''; tl.innerHTML='';
+  const cols=['rgba(255,45,85,0.35)','rgba(255,214,10,0.25)','rgba(0,229,255,0.25)','rgba(191,90,242,0.25)'];
+  const tc=['#ff2d55','#ffd60a','#00e5ff','#bf5af2'];
+  captions.forEach((cap,i)=>{
+    const ci=i%4;
+    const item=document.createElement('div');
+    item.className='cap-item'+(i===0?' active':'');
+    item.innerHTML='<div class="cap-time">'+fmt(cap.start)+' → '+fmt(cap.end)+'</div><textarea class="cap-ta" rows="2">'+cap.text+'</textarea>';
+    item.querySelector('textarea').oninput=e=>{cap.text=e.target.value;previewText=e.target.value;updatePreview();};
+    item.onclick=()=>{document.querySelectorAll('.cap-item').forEach(c=>c.classList.remove('active'));item.classList.add('active');previewText=cap.text;updatePreview();};
+    list.appendChild(item);
+    const seg=document.createElement('div');
+    seg.className='tl-seg'; seg.style.cssText='background:'+cols[ci]+';color:'+tc[ci]+';';
+    seg.textContent=cap.text.substring(0,7)+'..'; seg.onclick=item.onclick;
+    tl.appendChild(seg);
+  });
+}
+
+function fmt(s){return Math.floor(s/60).toString().padStart(2,'0')+':'+Math.floor(s%60).toString().padStart(2,'0');}
+
+// PREVIEW CANVAS
+const STYLES = {
+  beast:   {render:(ctx,t,W,H,txt)=>{ctx.font=`900 ${fontSize}px 'Bebas Neue',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.shadowBlur=0;ctx.strokeStyle='#000';ctx.lineWidth=outlineSize*2;ctx.strokeText(txt,W/2,H/2);if(shadowSize>0){ctx.fillStyle='#ff3c00';ctx.fillText(txt,W/2+shadowSize,H/2+shadowSize);}const g=ctx.createLinearGradient(W/2-200,H/2,W/2+200,H/2);g.addColorStop(0,currentColor);g.addColorStop(1,currentColor2);ctx.fillStyle=g;ctx.fillText(txt,W/2,H/2);}},
+  hormozi: {render:(ctx,t,W,H,txt)=>{ctx.font=`900 ${fontSize*0.7}px 'Montserrat',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const m=ctx.measureText(txt);ctx.fillStyle='#fff';ctx.fillRect(W/2-m.width/2-16,H/2-fontSize*0.4,m.width+32,fontSize*0.8);ctx.fillStyle='#000';ctx.fillText(txt,W/2,H/2);}},
+  skool:   {render:(ctx,t,W,H,txt)=>{ctx.font=`900 ${fontSize}px 'Bebas Neue',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.shadowBlur=30;ctx.shadowColor='#a855f7';ctx.fillStyle='#fff';ctx.fillText(txt,W/2,H/2);ctx.shadowBlur=0;}},
+  gadzhi:  {render:(ctx,t,W,H,txt)=>{ctx.font=`700 ${fontSize*0.55}px 'Orbitron',monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.shadowBlur=20;ctx.shadowColor='#00e5ff';ctx.fillStyle='#00e5ff';ctx.fillText(txt.toUpperCase(),W/2,H/2);ctx.shadowBlur=0;}},
+  devin:   {render:(ctx,t,W,H,txt)=>{ctx.font=`900 ${fontSize*0.65}px 'Barlow Condensed',sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#ff2d55';ctx.fillRect(W/2-200,H/2-fontSize*0.4,6,fontSize*0.8);ctx.fillStyle='#fff';ctx.fillText(txt,W/2-188,H/2);}},
+  zaib:    {render:(ctx,t,W,H,txt)=>{ctx.font=`900 ${fontSize}px 'Bebas Neue',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const g=ctx.createLinearGradient(W/2-200,H/2,W/2+200,H/2);g.addColorStop(0,'#ff2d55');g.addColorStop(0.5,'#ffd60a');g.addColorStop(1,'#bf5af2');ctx.fillStyle=g;ctx.fillText(txt,W/2,H/2);}},
+  bubble:  {render:(ctx,t,W,H,txt)=>{const words=txt.split(' ');ctx.font=`700 ${fontSize*0.55}px 'DM Sans',sans-serif`;ctx.textBaseline='middle';let x=W/2-((words.length-1)*80)/2;words.forEach((w,i)=>{const ww=ctx.measureText(w).width+24;ctx.fillStyle=i===0?'rgba(255,45,85,0.35)':'rgba(255,255,255,0.12)';roundRect(ctx,x-ww/2,H/2-fontSize*0.3,ww,fontSize*0.6,14);ctx.fillStyle=i===0?'#ff2d55':'#fff';ctx.fillText(w,x,H/2);x+=ww+8;});}},
+  urdu:    {render:(ctx,t,W,H,txt)=>{ctx.font=`700 ${fontSize}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.direction='rtl';ctx.shadowBlur=15;ctx.shadowColor=currentColor;ctx.fillStyle=currentColor;ctx.fillText(txt,W/2,H/2);ctx.direction='ltr';ctx.shadowBlur=0;}},
+  neon:    {render:(ctx,t,W,H,txt)=>{ctx.font=`900 ${fontSize*0.8}px 'Audiowide',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';[40,20,10].forEach((b,i)=>{ctx.shadowBlur=b;ctx.shadowColor=currentColor;ctx.fillStyle=currentColor;ctx.globalAlpha=0.3+i*0.2;ctx.fillText(txt,W/2,H/2);});ctx.globalAlpha=1;ctx.shadowBlur=0;}},
+  kinetic: {render:(ctx,t,W,H,txt)=>{const scale=0.8+Math.sin(t*Math.PI*2)*0.2;ctx.save();ctx.translate(W/2,H/2);ctx.scale(scale,scale);ctx.font=`900 ${fontSize}px 'Anton',sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=currentColor;ctx.fillText(txt,0,0);ctx.restore();}},
+};
+
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();}
+
+function drawBg(ctx,W,H){
+  if(bgType==='transparent'){ctx.clearRect(0,0,W,H);}
+  else if(bgType==='black'){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);}
+  else if(bgType==='white'){ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);}
+  else if(bgType==='dark-grad'){const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#0a0a0f');g.addColorStop(1,'#1a0a2e');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+  else if(bgType==='fire-grad'){const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#1a0000');g.addColorStop(1,'#ff4400');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+  else{ctx.fillStyle=bgColor;ctx.fillRect(0,0,W,H);}
+}
+
+function startPreviewAnim() {
+  const canvas = document.getElementById('prevCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  function frame() {
+    animT = (animT+0.008)%1;
+    ctx.clearRect(0,0,W,H);
+    drawBg(ctx,W,H);
+    const style = STYLES[currentStyle] || STYLES.beast;
+    try { style.render(ctx,animT,W,H,previewText||'ZAIB_STUDIO'); } catch(e){}
+    animRAF = requestAnimationFrame(frame);
+  }
+  cancelAnimationFrame(animRAF);
+  animRAF = requestAnimationFrame(frame);
+}
+
+window.updatePreview = () => {
+  previewText = document.getElementById('previewTextInput')?.value || previewText;
+};
+
+window.selectStyle = (el, style) => {
+  if(el.classList.contains('locked')){showUpgrade();return;}
+  document.querySelectorAll('.style-card').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  currentStyle = style;
+  toast('✅ '+style+' style!');
+};
+
+window.selectFont = (el, font) => {
+  if(el.classList.contains('locked')){showUpgrade();return;}
+  document.querySelectorAll('.font-item').forEach(f=>f.classList.remove('active'));
+  el.classList.add('active');
+  currentFont = font;
+  toast('✅ '+font);
+};
+
+window.updateCtrl = (key, val) => {
+  if(key==='size') fontSize=parseInt(val);
+  if(key==='outline') outlineSize=parseInt(val);
+  if(key==='shadow') shadowSize=parseInt(val);
+  if(key==='color') currentColor=val;
+  if(key==='color2') currentColor2=val;
+  if(key==='bg') bgType=val;
+  if(key==='bgColor') bgColor=val;
+};
+
+// EXPORT
+window.exportSRT = () => {
+  if(!captions.length){toast('⚠️ Generate karo pehle!');return;}
+  let s='';
+  captions.forEach((c,i)=>{s+=`${i+1}\n${toSRTTime(c.start)} --> ${toSRTTime(c.end)}\n${c.text}\n\n`;});
+  dl('zaib_captions.srt',s,'text/plain');
+  toast('📝 SRT downloaded!');
+};
+
+window.exportVTT = () => {
+  if(!captions.length){toast('⚠️ Generate karo pehle!');return;}
+  let s='WEBVTT\n\n';
+  captions.forEach((c,i)=>{s+=`${toVTTTime(c.start)} --> ${toVTTTime(c.end)}\n${c.text}\n\n`;});
+  dl('zaib_captions.vtt',s,'text/plain');
+  toast('📄 VTT downloaded!');
+};
+
+window.exportPNG = () => {
+  const canvas = document.getElementById('prevCanvas');
+  const a=document.createElement('a');
+  a.download='zaib_caption.png';
+  a.href=canvas.toDataURL('image/png');
+  a.click();
+  toast('📸 PNG saved!');
+};
+
+window.exportVideo = () => {
+  if(UP==='free'||UP==='starter'){showUpgrade();return;}
+  toast('🎬 Video export coming soon in Pro!');
+};
+
+function toSRTTime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60),ms=Math.round((s%1)*1000);return `${pad(h)}:${pad(m)}:${pad(sc)},${ms.toString().padStart(3,'0')}`;}
+function toVTTTime(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60),ms=Math.round((s%1)*1000);return `${pad(h)}:${pad(m)}:${pad(sc)}.${ms.toString().padStart(3,'0')}`;}
+function pad(n){return n.toString().padStart(2,'0');}
+function dl(name,content,type){const b=new Blob([content],{type});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
+
+// UPGRADE
+window.showUpgrade = () => { document.getElementById('upgradeModal').style.display='flex'; };
+window.closeUpgrade = () => { document.getElementById('upgradeModal').style.display='none'; };
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(20px)';},2500);}
+</script>
+
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#07070a;--s1:#0d0d12;--s2:#131318;--s3:#1a1a22;
+  --br:#1e1e2c;--br2:#2a2a38;
+  --red:#ff2d55;--yel:#ffd60a;--cyn:#00e5ff;--pur:#bf5af2;--grn:#34c759;
+  --tx:#f0f0f7;--mu:#5a5a78;
+}
+body{background:var(--bg);color:var(--tx);font-family:'DM Sans',sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;}
+
+/* AUTH SCREEN */
+#authScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;}
+.auth-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 30% 40%,rgba(255,45,85,0.08),transparent 60%),radial-gradient(ellipse at 70% 70%,rgba(191,90,242,0.06),transparent 60%);}
+.auth-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,45,85,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,45,85,0.02) 1px,transparent 1px);background-size:44px 44px;}
+.auth-card{background:var(--s1);border:1px solid var(--br);border-radius:20px;padding:40px 36px;width:100%;max-width:400px;position:relative;z-index:1;box-shadow:0 40px 80px rgba(0,0,0,0.6);}
+.auth-card::before{content:'';position:absolute;top:0;left:16px;right:16px;height:2px;background:linear-gradient(90deg,transparent,var(--red),var(--yel),var(--pur),transparent);}
+.auth-logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:4px;text-align:center;margin-bottom:4px;background:linear-gradient(90deg,#fff 40%,var(--yel));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.auth-logo b{background:linear-gradient(90deg,var(--red),var(--pur));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.auth-sub{text-align:center;font-size:11px;color:var(--mu);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:28px;}
+.auth-tabs{display:flex;background:var(--bg);border-radius:10px;padding:3px;margin-bottom:20px;border:1px solid var(--br);}
+.auth-tab{flex:1;padding:8px;border:none;border-radius:8px;background:transparent;color:var(--mu);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.auth-tab.on{background:var(--red);color:#fff;}
+.auth-err{display:none;background:rgba(255,45,85,0.1);border:1px solid rgba(255,45,85,0.3);border-radius:8px;padding:9px;font-size:12px;color:var(--red);margin-bottom:12px;text-align:center;}
+.g-btn{width:100%;padding:13px;background:#fff;color:#1a1a1a;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;transition:all 0.2s;}
+.g-btn:hover{background:#f0f0f0;transform:translateY(-1px);}
+.divider-line{display:flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--mu);font-size:11px;}
+.divider-line::before,.divider-line::after{content:'';flex:1;height:1px;background:var(--br);}
+.auth-input{width:100%;background:var(--bg);border:1px solid var(--br);border-radius:9px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:14px;padding:11px 14px;outline:none;margin-bottom:12px;transition:border-color 0.2s;}
+.auth-input:focus{border-color:var(--red);}
+.auth-input::placeholder{color:var(--mu);}
+.auth-submit{width:100%;padding:13px;background:linear-gradient(135deg,var(--red),#ff6b35);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(255,45,85,0.3);transition:all 0.2s;}
+.auth-submit:hover{transform:translateY(-1px);}
+
+/* TOPBAR */
+.topbar{background:var(--s1);border-bottom:1px solid var(--br);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-shrink:0;position:relative;}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--red),var(--yel),var(--cyn),var(--pur));}
+.tb-logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;text-decoration:none;}
+.tb-logo-z{background:linear-gradient(90deg,#fff,var(--yel));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.tb-logo-s{background:linear-gradient(90deg,var(--red),var(--pur));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.tb-divider{width:1px;height:20px;background:var(--br);}
+.tb-nav{display:flex;gap:2px;}
+.tb-nav-btn{padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:var(--mu);transition:all 0.2s;text-decoration:none;display:inline-block;}
+.tb-nav-btn:hover{background:var(--s3);color:var(--tx);}
+.tb-nav-btn.on{background:var(--s3);color:var(--tx);}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.tb-user{display:flex;align-items:center;gap:8px;border-left:1px solid var(--br);padding-left:10px;}
+.tb-uname{font-size:12px;font-weight:700;}
+.tb-uplan{font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--red);text-transform:uppercase;}
+.tbtn{padding:6px 14px;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all 0.2s;text-decoration:none;display:inline-block;}
+.tbtn-red{background:linear-gradient(135deg,var(--red),#ff6b35);color:#fff;box-shadow:0 3px 12px rgba(255,45,85,0.3);}
+.tbtn-yel{background:linear-gradient(135deg,var(--yel),#ff8c00);color:#000;}
+.tbtn-ghost{background:transparent;border:1px solid var(--br);color:var(--mu);}
+.tbtn-ghost:hover{border-color:var(--tx);color:var(--tx);}
+
+/* FREE BANNER */
+#freeBanner{display:none;background:rgba(255,214,10,0.07);border-bottom:1px solid rgba(255,214,10,0.15);padding:7px 18px;align-items:center;gap:10px;font-size:12px;flex-shrink:0;}
+.fb-text{color:var(--yel);font-weight:600;flex:1;}
+.fb-text a{color:var(--yel);font-weight:800;text-decoration:none;}
+
+/* MAIN LAYOUT */
+#appScreen{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.app-body{display:flex;flex:1;overflow:hidden;}
+
+/* TABS */
+.tab-bar{display:flex;background:var(--s2);border-right:1px solid var(--br);flex-direction:column;width:52px;align-items:center;padding:8px 0;gap:4px;flex-shrink:0;}
+.tab-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;transition:all 0.2s;color:var(--mu);}
+.tab-icon:hover{background:var(--s3);color:var(--tx);}
+.tab-icon.on{background:rgba(255,45,85,0.15);color:var(--red);}
+
+/* LEFT PANEL */
+.left-panel{width:260px;background:var(--s1);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.panel-tab-content{display:none;flex-direction:column;flex:1;overflow-y:auto;}
+.panel-tab-content.on{display:flex;}
+.psec{padding:11px;border-bottom:1px solid var(--br);}
+.ptitle{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.ptitle::after{content:'';flex:1;height:1px;background:var(--br);}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--br);border-radius:10px;padding:20px 14px;text-align:center;cursor:pointer;transition:all 0.3s;background:var(--s2);}
+.upload-zone:hover,.upload-zone.has-file{border-color:var(--red);background:rgba(255,45,85,0.04);}
+.u-icon{font-size:28px;display:block;margin-bottom:6px;}
+.u-title{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;margin-bottom:3px;}
+.u-sub{font-size:10px;color:var(--mu);}
+
+/* Lang */
+.lang-sel{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 10px;outline:none;cursor:pointer;}
+.lang-sel:focus{border-color:var(--red);}
+.lang-sel option{background:var(--s2);}
+
+/* Style cards */
+.styles-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.style-card{background:var(--s2);border:1.5px solid var(--br);border-radius:8px;padding:7px 5px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.style-card:hover:not(.locked){border-color:var(--mu);}
+.style-card.active{border-color:var(--yel);background:rgba(255,214,10,0.05);}
+.style-card.active::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--yel);font-size:9px;font-weight:900;}
+.style-card.locked{opacity:0.4;cursor:not-allowed;}
+.style-card.locked::before{content:'🔒';position:absolute;top:3px;right:4px;font-size:10px;}
+.s-preview{height:38px;border-radius:5px;display:flex;align-items:center;justify-content:center;margin-bottom:5px;overflow:hidden;font-size:10px;font-weight:900;}
+.s-name{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--mu);text-align:center;}
+
+/* Fonts */
+.font-list{display:flex;flex-direction:column;gap:3px;max-height:240px;overflow-y:auto;}
+.font-item{display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:7px 10px;cursor:pointer;transition:all 0.2s;}
+.font-item:hover:not(.locked){border-color:var(--mu);}
+.font-item.active{border-color:var(--cyn);}
+.font-item.locked{opacity:0.35;cursor:not-allowed;}
+.font-preview{font-size:15px;font-weight:700;flex:1;color:var(--tx);}
+.font-tag{font-size:8px;color:var(--mu);font-family:'Space Mono',monospace;}
+
+/* Controls */
+.ctrl{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.cl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);min-width:46px;}
+.ci{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:11px;padding:5px 8px;outline:none;}
+.ci:focus{border-color:var(--cyn);}
+select.ci{cursor:pointer;}
+input[type=range].ci{padding:0;height:3px;-webkit-appearance:none;background:var(--br);border:none;}
+input[type=range].ci::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--red);border-radius:50%;cursor:pointer;}
+input[type=color].ci{width:28px;height:24px;padding:1px;cursor:pointer;}
+.cv{font-size:9px;color:var(--yel);min-width:26px;text-align:right;font-family:'Space Mono',monospace;}
+
+/* Usage */
+.usage-row{display:flex;justify-content:space-between;font-size:9px;color:var(--mu);margin-bottom:4px;}
+.usage-val{font-family:'Space Mono',monospace;font-size:9px;color:var(--tx);}
+.usage-track{height:4px;background:var(--br);border-radius:2px;overflow:hidden;margin-bottom:8px;}
+.usage-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--yel));border-radius:2px;}
+
+/* CENTER */
+.center{flex:1;display:flex;flex-direction:column;background:#000;position:relative;}
+.preview-area{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+#prevCanvas{border-radius:4px;box-shadow:0 0 60px rgba(0,0,0,0.8);max-width:100%;max-height:100%;}
+.vid-ph{text-align:center;cursor:pointer;position:absolute;}
+.vid-ph-icon{font-size:52px;display:block;margin-bottom:10px;opacity:0.2;}
+.vid-ph-t{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:1px;color:var(--mu);}
+#vidPlayer{position:absolute;max-width:100%;max-height:100%;display:none;}
+
+/* Timeline */
+.timeline{height:68px;background:var(--s1);border-top:1px solid var(--br);padding:9px 14px;display:flex;flex-direction:column;gap:5px;flex-shrink:0;}
+.tl-label{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mu);}
+.tl-track{flex:1;background:var(--s2);border-radius:4px;display:flex;gap:2px;padding:3px;overflow:hidden;}
+.tl-seg{flex:1;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;cursor:pointer;white-space:nowrap;overflow:hidden;padding:0 3px;transition:filter 0.2s;min-width:0;}
+.tl-seg:hover{filter:brightness(1.4);}
+
+/* RIGHT */
+.right-panel{width:240px;background:var(--s1);border-left:1px solid var(--br);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+
+/* Captions list */
+.cap-list-wrap{flex:1;overflow-y:auto;}
+.cap-item{padding:9px 11px;border-bottom:1px solid var(--br);cursor:pointer;transition:background 0.15s;}
+.cap-item:hover{background:var(--s2);}
+.cap-item.active{background:rgba(255,45,85,0.06);border-left:2px solid var(--red);}
+.cap-time{font-family:'Space Mono',monospace;font-size:7px;color:var(--mu);margin-bottom:3px;}
+.cap-ta{width:100%;background:transparent;border:none;color:var(--tx);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;resize:none;outline:none;line-height:1.4;}
+.cap-ta:focus{color:var(--yel);}
+
+/* Export panel */
+.exp-opt{display:flex;align-items:center;gap:8px;background:var(--s2);border:1.5px solid var(--br);border-radius:7px;padding:8px 10px;cursor:pointer;margin-bottom:4px;transition:all 0.2s;}
+.exp-opt:hover:not(.locked-ex){border-color:var(--yel);}
+.exp-opt.locked-ex{opacity:0.45;cursor:not-allowed;}
+.exp-icon{font-size:15px;}
+.exp-name{font-size:10px;font-weight:700;}
+.exp-desc{font-size:8px;color:var(--mu);}
+.exp-lock{font-size:10px;margin-left:auto;}
+
+/* Generate btn */
+.gen-area{padding:10px;}
+.gen-btn{width:100%;padding:12px;background:linear-gradient(135deg,var(--red),#ff6b35);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 18px rgba(255,45,85,0.35);}
+.gen-btn:hover{transform:translateY(-1px);}
+.gen-btn:disabled{opacity:0.7;cursor:not-allowed;transform:none;}
+
+/* Upgrade Modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(6px);}
+.modal-card{background:var(--s1);border:1px solid var(--br);border-radius:20px;padding:36px 32px;max-width:440px;width:90%;text-align:center;position:relative;}
+.modal-card::before{content:'';position:absolute;top:0;left:16px;right:16px;height:2px;background:linear-gradient(90deg,var(--red),var(--yel),var(--pur));}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:900;letter-spacing:2px;margin-bottom:8px;}
+.modal-sub{font-size:13px;color:var(--mu);margin-bottom:24px;line-height:1.5;}
+.modal-plans{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px;}
+.mp{background:var(--s2);border:1.5px solid var(--br);border-radius:10px;padding:16px 8px;cursor:pointer;transition:all 0.2s;}
+.mp:hover,.mp.on{border-color:var(--red);}
+.mp-n{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--mu);margin-bottom:4px;}
+.mp-p{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;}
+.mp-u{font-size:8px;color:var(--mu);}
+.modal-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--red),#ff6b35);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;}
+.modal-close{font-size:12px;color:var(--mu);cursor:pointer;text-decoration:underline;}
+
+/* Spinner */
+.sp{width:13px;height:13px;border:2px solid rgba(255,255,255,0.25);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Toast */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--red),var(--pur));color:#fff;padding:9px 18px;border-radius:20px;font-size:11px;font-weight:700;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="authScreen">
+  <div class="auth-bg"></div>
+  <div class="auth-grid"></div>
+  <div class="auth-card">
+    <div class="auth-logo">ZAIB<b>_STUDIO</b></div>
+    <div class="auth-sub">AI Caption & Text Animation</div>
+    <div class="auth-tabs">
+      <button class="auth-tab on" id="aTab1" onclick="switchAuthTab('login')">Login</button>
+      <button class="auth-tab" id="aTab2" onclick="switchAuthTab('signup')">Sign Up</button>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+    <button class="g-btn" onclick="gLogin()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+    <div class="divider-line">or</div>
+    <input type="email" class="auth-input" id="authEmail" placeholder="Email address" onkeydown="if(event.key==='Enter')emailAuth(authMode)"/>
+    <input type="password" class="auth-input" id="authPass" placeholder="Password (min 6 chars)" onkeydown="if(event.key==='Enter')emailAuth(authMode)"/>
+    <button class="auth-submit" id="authSubmit" onclick="emailAuth(authMode)">Login →</button>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="tb-logo"><span class="tb-logo-z">ZAIB</span><span class="tb-logo-s">_STUDIO</span></div>
+    <div class="tb-divider"></div>
+    <div class="tb-nav">
+      <a class="tb-nav-btn on" onclick="switchMainTab('captions')">🎙 Captions</a>
+      <a class="tb-nav-btn" onclick="switchMainTab('animator')">✨ Animator</a>
+      <a class="tb-nav-btn" onclick="switchMainTab('audio')">🎛 Audio</a>
+      <a class="tb-nav-btn" onclick="switchMainTab('translate')">🌍 Translate</a>
+    </div>
+    <div class="tb-right">
+      <a href="pricing.html" class="tbtn tbtn-yel">💎 Upgrade</a>
+      <div class="tb-user">
+        <div><div class="tb-uname" id="uName">...</div><div class="tb-uplan" id="uPlan">FREE</div></div>
+        <button class="tbtn tbtn-ghost" onclick="doLogout()">Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FREE BANNER -->
+  <div id="freeBanner">
+    <div class="fb-text">⚡ Free: 10 min/month · 3 styles · Watermark. <a href="pricing.html">Upgrade from PKR 999 →</a></div>
+  </div>
+
+  <!-- APP BODY -->
+  <div class="app-body">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <!-- Upload -->
+      <div class="psec">
+        <div class="ptitle">Upload</div>
+        <div class="upload-zone" id="uploadZone"
+          onclick="document.getElementById('fInput').click()"
+          ondragover="event.preventDefault();this.classList.add('has-file')"
+          ondrop="event.preventDefault();handleFile(event.dataTransfer.files[0])">
+          <span class="u-icon" id="uIcon">🎬</span>
+          <div class="u-title" id="uTitle">Drop or Click</div>
+          <div class="u-sub" id="uSub">MP4 · MOV · MP3 · WAV</div>
+        </div>
+        <input type="file" id="fInput" accept="video/*,audio/*" style="display:none" onchange="handleFile(this.files[0])"/>
+      </div>
+
+      <!-- Language -->
+      <div class="psec">
+        <div class="ptitle">Language</div>
+        <select class="lang-sel" id="langSel">
+          <option value="ur">🇵🇰 Urdu اردو</option>
+          <option value="hi">🇮🇳 Hindi हिंदी</option>
+          <option value="pa">Punjabi ਪੰਜਾਬੀ</option>
+          <option value="ps">Pashto پښتو</option>
+          <option value="sd">Sindhi سنڌي</option>
+          <option value="bn">Bengali বাংলা</option>
+          <option value="ta">Tamil தமிழ்</option>
+          <option value="gu">Gujarati ગુ</option>
+          <option value="ne">Nepali नेपाली</option>
+          <option value="en" selected>🌍 English</option>
+          <option value="ms">Malay</option>
+          <option value="id">Indonesian</option>
+        </select>
+      </div>
+
+      <!-- Styles -->
+      <div class="psec">
+        <div class="ptitle">Caption Style</div>
+        <div class="styles-grid">
+          <div class="style-card active" onclick="selectStyle(this,'beast')">
+            <div class="s-preview" style="background:#111;color:#ffcc00;font-family:'Bebas Neue';font-size:11px;letter-spacing:1px;text-shadow:2px 2px 0 #f30,-1px -1px 0 #000;">BEAST</div>
+            <div class="s-name">MrBeast</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'hormozi')">
+            <div class="s-preview" style="background:#fff;color:#000;font-family:'Montserrat';font-weight:900;font-size:10px;">HORMOZI</div>
+            <div class="s-name">Hormozi</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'skool')">
+            <div class="s-preview" style="background:linear-gradient(135deg,#1a0533,#0a0a0f);color:#fff;font-family:'Bebas Neue';font-size:11px;text-shadow:0 0 10px #a855f7;">SKOOL</div>
+            <div class="s-name">Editing Skool</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'bubble')">
+            <div class="s-preview" style="background:#0a0a1a;gap:3px;">
+              <span style="background:rgba(255,45,85,0.3);border:1px solid rgba(255,45,85,0.5);border-radius:20px;padding:1px 6px;color:#ff2d55;font-size:8px;font-weight:700;">ZA</span>
+              <span style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:1px 6px;font-size:8px;font-weight:700;">IB</span>
+            </div>
+            <div class="s-name">Bubble</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'gadzhi')">
+            <div class="s-preview" style="background:#0d0d0d;color:#00e5ff;font-family:'Orbitron';font-size:8px;letter-spacing:2px;text-shadow:0 0 8px rgba(0,229,255,0.8);">GADZ</div>
+            <div class="s-name">Gadzhi</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'zaib')">
+            <div class="s-preview" style="background:linear-gradient(135deg,#0a0a0f,#1a0533);">
+              <span style="background:linear-gradient(90deg,#ff2d55,#ffd60a,#bf5af2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-family:'Bebas Neue';font-size:12px;letter-spacing:1px;">ZAIB</span>
+            </div>
+            <div class="s-name">⭐ Signature</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'devin')">
+            <div class="s-preview" style="background:#111;border-left:3px solid #ff2d55;color:#fff;font-family:'Barlow Condensed';font-weight:900;font-size:10px;padding-left:5px;">DEVIN</div>
+            <div class="s-name">Devin</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'neon')">
+            <div class="s-preview" style="background:#040408;color:#00e5ff;font-family:'Audiowide';font-size:9px;text-shadow:0 0 15px #00e5ff,0 0 30px #00e5ff;">NEON</div>
+            <div class="s-name">Neon Glow</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'kinetic')">
+            <div class="s-preview" style="background:#0a0005;color:#ffd60a;font-family:'Anton';font-size:12px;letter-spacing:2px;">KINETIC</div>
+            <div class="s-name">Kinetic</div>
+          </div>
+          <div class="style-card" onclick="selectStyle(this,'urdu')">
+            <div class="s-preview" style="background:#0a1628;color:#ffd60a;font-size:16px;direction:rtl;text-shadow:0 0 10px rgba(255,214,10,0.5);">زیب</div>
+            <div class="s-name">Urdu/Desi</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usage -->
+      <div class="psec" style="margin-top:auto;">
+        <div class="ptitle">Usage</div>
+        <div class="usage-row"><span>Minutes</span><span class="usage-val"><span id="usedMin">0</span>/<span id="limitMin">10</span></span></div>
+        <div class="usage-track"><div class="usage-fill" id="usageBar" style="width:0%"></div></div>
+        <button class="tbtn tbtn-yel" style="width:100%;padding:8px;" onclick="showUpgrade()">⚡ Upgrade Plan</button>
+      </div>
+
+    </div>
+
+    <!-- CENTER CANVAS -->
+    <div class="center">
+      <div class="preview-area">
+        <div class="vid-ph" id="vidPlaceholder" onclick="document.getElementById('fInput').click()">
+          <span class="vid-ph-icon">🎬</span>
+          <div class="vid-ph-t">Upload to Start</div>
+        </div>
+        <video id="vidPlayer" controls></video>
+        <canvas id="prevCanvas" width="854" height="480"></canvas>
+      </div>
+      <div class="timeline">
+        <div class="tl-label">Timeline</div>
+        <div class="tl-track" id="tlSegs">
+          <div class="tl-seg" style="background:rgba(255,45,85,0.2);color:#ff2d55;">Upload karo...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+
+      <!-- Customize -->
+      <div class="psec">
+        <div class="ptitle">Customize</div>
+        <div class="ctrl">
+          <span class="cl">Text</span>
+          <input type="text" class="ci" id="previewTextInput" value="ZAIB_STUDIO" oninput="previewText=this.value"/>
+        </div>
+        <div class="ctrl">
+          <span class="cl">Size</span>
+          <input type="range" class="ci" min="16" max="100" value="64" oninput="updateCtrl('size',this.value);document.getElementById('szV').textContent=this.value+'px'"/>
+          <span class="cv" id="szV">64px</span>
+        </div>
+        <div class="ctrl">
+          <span class="cl">Color</span>
+          <input type="color" class="ci" value="#ffcc00" oninput="updateCtrl('color',this.value)"/>
+          <input type="color" class="ci" value="#ff3c6e" oninput="updateCtrl('color2',this.value)"/>
+          <span style="font-size:8px;color:var(--mu);">Grad</span>
+        </div>
+        <div class="ctrl">
+          <span class="cl">Outline</span>
+          <input type="color" class="ci" value="#000000"/>
+          <input type="range" class="ci" min="0" max="10" value="3" oninput="updateCtrl('outline',this.value);document.getElementById('olV').textContent=this.value+'px'"/>
+          <span class="cv" id="olV">3px</span>
+        </div>
+        <div class="ctrl">
+          <span class="cl">Shadow</span>
+          <input type="color" class="ci" value="#ff2d00"/>
+          <input type="range" class="ci" min="0" max="20" value="6" oninput="updateCtrl('shadow',this.value);document.getElementById('shV').textContent=this.value+'px'"/>
+          <span class="cv" id="shV">6px</span>
+        </div>
+        <div class="ctrl">
+          <span class="cl">BG</span>
+          <select class="ci" onchange="updateCtrl('bg',this.value)">
+            <option value="black">Black</option>
+            <option value="transparent">Transparent</option>
+            <option value="white">White</option>
+            <option value="dark-grad">Dark Gradient</option>
+            <option value="fire-grad">Fire Gradient</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input type="color" class="ci" value="#000000" oninput="updateCtrl('bgColor',this.value)"/>
+        </div>
+        <div class="ctrl">
+          <span class="cl">Position</span>
+          <select class="ci" onchange="updatePos(this.value)">
+            <option>Bottom</option><option>Center</option><option>Top</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Captions list -->
+      <div class="psec" style="padding-bottom:0;"><div class="ptitle">Captions</div></div>
+      <div class="cap-list-wrap" id="captionList">
+        <div style="text-align:center;padding:30px 16px;color:var(--mu);font-size:12px;">Generate karo captions dekhne ke liye</div>
+      </div>
+
+      <!-- Export -->
+      <div class="psec">
+        <div class="ptitle">Export</div>
+        <div class="exp-opt" onclick="exportSRT()">
+          <span class="exp-icon">📝</span>
+          <div><div class="exp-name">SRT File</div><div class="exp-desc">Any NLE software</div></div>
+        </div>
+        <div class="exp-opt" onclick="exportVTT()">
+          <span class="exp-icon">📄</span>
+          <div><div class="exp-name">VTT File</div><div class="exp-desc">Web captions</div></div>
+        </div>
+        <div class="exp-opt" onclick="exportPNG()">
+          <span class="exp-icon">📸</span>
+          <div><div class="exp-name">PNG Frame</div><div class="exp-desc">Current frame</div></div>
+        </div>
+        <div class="exp-opt locked-ex" onclick="showUpgrade()">
+          <span class="exp-icon">🎬</span>
+          <div><div class="exp-name">Alpha MOV</div><div class="exp-desc">Pro plan</div></div>
+          <span class="exp-lock">🔒</span>
+        </div>
+        <div class="exp-opt locked-ex" onclick="showUpgrade()">
+          <span class="exp-icon">🎞</span>
+          <div><div class="exp-name">4K MP4</div><div class="exp-desc">Pro plan</div></div>
+          <span class="exp-lock">🔒</span>
+        </div>
+      </div>
+
+      <!-- Generate -->
+      <div class="gen-area">
+        <button class="gen-btn" id="genBtn" onclick="generateCaptions()">⚡ Generate Captions</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="modal" id="upgradeModal">
+  <div class="modal-card">
+    <div class="modal-title">UPGRADE KARO</div>
+    <div class="modal-sub">Is feature ke liye upgrade zaruri hai. PKR mein pay karo!</div>
+    <div class="modal-plans">
+      <div class="mp on"><div class="mp-n">Starter</div><div class="mp-p" style="color:var(--yel);">999</div><div class="mp-u">PKR/mo</div></div>
+      <div class="mp"><div class="mp-n">Pro</div><div class="mp-p" style="color:var(--red);">1,999</div><div class="mp-u">PKR/mo</div></div>
+      <div class="mp"><div class="mp-n">Studio</div><div class="mp-p" style="color:var(--cyn);">3,499</div><div class="mp-u">PKR/mo</div></div>
+    </div>
+    <button class="modal-btn" onclick="window.location.href='pricing.html'">Pricing Dekho →</button>
+    <div class="modal-close" onclick="closeUpgrade()">Baad mein</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let authMode = 'login';
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('aTab1').classList.toggle('on', mode==='login');
+  document.getElementById('aTab2').classList.toggle('on', mode==='signup');
+  document.getElementById('authSubmit').textContent = mode==='login' ? 'Login →' : 'Create Account →';
+}
+
+function switchMainTab(tab) {
+  document.querySelectorAll('.tb-nav-btn').forEach(b=>b.classList.remove('on'));
+  event.target.classList.add('on');
+  // Future: show different panels per tab
+}
+
+function updatePos(val) {
+  const canvas = document.getElementById('prevCanvas');
+  // Position logic handled in canvas render
+}
+</script>
+</body>
+</html>

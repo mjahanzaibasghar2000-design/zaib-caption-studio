@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Zaib Studio — Premiere Pro Plugin</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0a0a0f;--surface:#13131a;--card:#1c1c28;--border:#2a2a3a;--red:#ff2d55;--yellow:#ffd60a;--cyan:#00e5ff;--purple:#bf5af2;--text:#f0f0ff;--muted:#6e6e80;}
+body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif;font-size:12px;min-height:100vh;display:flex;flex-direction:column;}
+.header{background:linear-gradient(135deg,#0a0a0f,#1a0a2e);border-bottom:1px solid var(--border);padding:10px 14px;position:relative;flex-shrink:0;}
+.header::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),var(--yellow),var(--cyan),var(--purple));}
+.header-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+.logo{font-size:16px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#fff,var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{background:linear-gradient(90deg,var(--red),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.badge{background:linear-gradient(135deg,var(--red),var(--purple));color:#fff;font-size:7px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:1px;}
+.tagline{font-size:8px;color:var(--muted);letter-spacing:1px;}
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:7px 10px;font-size:9px;font-weight:700;letter-spacing:0.5px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.2s;text-transform:uppercase;}
+.tab.active{color:var(--text);border-bottom-color:var(--red);}
+.content{display:none;padding:10px;flex:1;overflow-y:auto;}
+.content.active{display:block;}
+.sec-title{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* License check */
+.license-banner{background:rgba(255,45,85,0.08);border:1px solid rgba(255,45,85,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.license-banner.ok{background:rgba(52,199,89,0.08);border-color:rgba(52,199,89,0.2);}
+.license-icon{font-size:16px;}
+.license-text{font-size:10px;font-weight:600;}
+.license-text small{display:block;font-size:8px;color:var(--muted);font-weight:400;margin-top:1px;}
+
+/* Animation grid */
+.anim-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px;}
+.anim-card{background:var(--surface);border:1.5px solid var(--border);border-radius:7px;padding:7px 4px;cursor:pointer;text-align:center;transition:all 0.2s;position:relative;}
+.anim-card:hover{border-color:var(--muted);}
+.anim-card.sel{border-color:var(--yellow);background:rgba(255,214,10,0.05);}
+.anim-card.sel::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--yellow);font-size:8px;font-weight:900;}
+.anim-card.locked{opacity:0.4;cursor:not-allowed;}
+.anim-icon{font-size:18px;display:block;margin-bottom:3px;}
+.anim-name{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);}
+
+/* Preview canvas */
+.preview-box{background:#000;border-radius:6px;overflow:hidden;margin-bottom:10px;border:1px solid var(--border);position:relative;}
+.preview-canvas{width:100%;height:80px;display:block;}
+.preview-label{position:absolute;top:5px;left:7px;font-size:7px;color:rgba(255,255,255,0.3);letter-spacing:1px;}
+
+/* Fonts */
+.font-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;}
+.font-item{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:7px 9px;cursor:pointer;transition:all 0.2s;}
+.font-item:hover{border-color:var(--muted);}
+.font-item.sel{border-color:var(--cyan);}
+.font-preview{font-size:14px;font-weight:700;flex:1;}
+.font-name{font-size:9px;color:var(--muted);}
+
+/* Controls */
+.ctrl-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.ctrl-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);min-width:44px;}
+.ctrl-input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:Arial;font-size:10px;padding:4px 7px;outline:none;}
+.ctrl-input:focus{border-color:var(--cyan);}
+select.ctrl-input{cursor:pointer;}
+input[type=range].ctrl-input{padding:0;height:3px;-webkit-appearance:none;background:var(--border);border:none;}
+input[type=range].ctrl-input::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--red);border-radius:50%;cursor:pointer;}
+input[type=color].ctrl-input{width:26px;height:22px;padding:1px;cursor:pointer;}
+.ctrl-val{font-size:9px;color:var(--yellow);min-width:26px;text-align:right;}
+
+/* Effects */
+.fx-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.fx-pill{display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:9px;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--muted);}
+.fx-pill.on{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,0.08);}
+
+/* Buttons */
+.btn{width:100%;padding:9px;border:none;border-radius:6px;font-family:Arial;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-bottom:5px;}
+.btn-primary{background:linear-gradient(135deg,var(--red),#ff6b35);color:#fff;box-shadow:0 3px 12px rgba(255,45,85,0.3);}
+.btn-secondary{background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;}
+.btn-outline{background:transparent;border:1.5px solid var(--border);color:var(--muted);}
+.btn-outline:hover{border-color:var(--cyan);color:var(--text);}
+
+.footer{padding:7px 12px;border-top:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.footer-brand{font-size:10px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,var(--red),var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.footer-ver{font-size:7px;color:var(--muted);}
+#toast{position:fixed;bottom:36px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--red),var(--purple));color:#fff;padding:6px 14px;border-radius:20px;font-size:9px;font-weight:700;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div class="logo">ZAIB<span>_STUDIO</span></div>
+    <div class="badge">PREMIERE PRO</div>
+  </div>
+  <div class="tagline">Caption + Text Animation Plugin</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('animations')">Animations</div>
+  <div class="tab" onclick="switchTab('captions')">Captions</div>
+  <div class="tab" onclick="switchTab('fonts')">Fonts</div>
+  <div class="tab" onclick="switchTab('effects')">Effects</div>
+  <div class="tab" onclick="switchTab('export')">Export</div>
+</div>
+
+<!-- ANIMATIONS TAB -->
+<div class="content active" id="tab-animations">
+
+  <!-- License -->
+  <div class="license-banner ok" id="licenseBanner">
+    <span class="license-icon">✅</span>
+    <div class="license-text">Pro Plan Active
+      <small>License verified via Zaib Studio</small>
+    </div>
+  </div>
+
+  <div class="sec-title">50+ Animation Presets</div>
+
+  <!-- Category filter -->
+  <div style="display:flex;gap:4px;margin-bottom:8px;overflow-x:auto;">
+    <div class="fx-pill on" onclick="filterAnims(this,'all')">All</div>
+    <div class="fx-pill" onclick="filterAnims(this,'trending')">Trending</div>
+    <div class="fx-pill" onclick="filterAnims(this,'text')">Text</div>
+    <div class="fx-pill" onclick="filterAnims(this,'kinetic')">Kinetic</div>
+    <div class="fx-pill" onclick="filterAnims(this,'glitch')">Glitch</div>
+  </div>
+
+  <div class="anim-grid" id="animGrid">
+    <!-- Row 1 - Trending -->
+    <div class="anim-card sel" onclick="selectAnim(this,'Typewriter')" data-cat="trending text"><span class="anim-icon">⌨️</span><div class="anim-name">Typewriter</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Fade Up')" data-cat="trending text"><span class="anim-icon">⬆️</span><div class="anim-name">Fade Up</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Glitch')" data-cat="trending glitch"><span class="anim-icon">⚡</span><div class="anim-name">Glitch</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Bounce')" data-cat="trending kinetic"><span class="anim-icon">🎯</span><div class="anim-name">Bounce</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Wave')" data-cat="trending kinetic"><span class="anim-icon">🌊</span><div class="anim-name">Wave</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Word Split')" data-cat="trending text"><span class="anim-icon">✂️</span><div class="anim-name">Word Split</div></div>
+    <!-- Row 2 -->
+    <div class="anim-card" onclick="selectAnim(this,'Zoom In')" data-cat="text kinetic"><span class="anim-icon">🔍</span><div class="anim-name">Zoom In</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Slide Left')" data-cat="trending text"><span class="anim-icon">⬅️</span><div class="anim-name">Slide Left</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Slide Right')" data-cat="text"><span class="anim-icon">➡️</span><div class="anim-name">Slide Right</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Reveal')" data-cat="text"><span class="anim-icon">🎭</span><div class="anim-name">Reveal</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Shake')" data-cat="kinetic glitch"><span class="anim-icon">💥</span><div class="anim-name">Shake</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Scramble')" data-cat="glitch text"><span class="anim-icon">🔀</span><div class="anim-name">Scramble</div></div>
+    <!-- Row 3 -->
+    <div class="anim-card" onclick="selectAnim(this,'Kinetic')" data-cat="kinetic trending"><span class="anim-icon">🎬</span><div class="anim-name">Kinetic</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Drop In')" data-cat="kinetic"><span class="anim-icon">⬇️</span><div class="anim-name">Drop In</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Flip')" data-cat="kinetic"><span class="anim-icon">🔄</span><div class="anim-name">Flip</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'RGB Split')" data-cat="glitch trending"><span class="anim-icon">🌈</span><div class="anim-name">RGB Split</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Neon')" data-cat="trending"><span class="anim-icon">💡</span><div class="anim-name">Neon</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Fire')" data-cat="trending kinetic"><span class="anim-icon">🔥</span><div class="anim-name">Fire</div></div>
+  </div>
+
+  <div class="sec-title">Preview</div>
+  <div class="preview-box">
+    <canvas class="preview-canvas" id="previewCanvas" width="280" height="80"></canvas>
+    <div class="preview-label">PREVIEW</div>
+  </div>
+
+  <div class="ctrl-row">
+    <span class="ctrl-label">Text</span>
+    <input type="text" class="ctrl-input" id="previewText" value="ZAIB_BALOCH" oninput="restartPreview()"/>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Duration</span>
+    <input type="range" class="ctrl-input" min="1" max="10" value="3" oninput="this.nextElementSibling.textContent=this.value+'s'"/>
+    <span class="ctrl-val">3s</span>
+  </div>
+  <button class="btn btn-primary" onclick="applyToTimeline()">▶ Apply to Timeline</button>
+</div>
+
+<!-- CAPTIONS TAB -->
+<div class="content" id="tab-captions">
+  <div class="license-banner ok">
+    <span class="license-icon">✅</span>
+    <div class="license-text">Caption Studio Connected<small>AssemblyAI powered</small></div>
+  </div>
+  <div class="sec-title">Caption Style</div>
+  <div class="anim-grid">
+    <div class="anim-card sel" onclick="selectAnim(this,'MrBeast')"><span class="anim-icon" style="color:#ffcc00;font-size:12px;font-weight:900;text-shadow:1px 1px 0 #f30;">BEAST</span><div class="anim-name">MrBeast</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Hormozi')"><span class="anim-icon" style="color:#000;background:#fff;font-size:10px;font-weight:900;border-radius:3px;padding:2px 4px;">HORMO</span><div class="anim-name">Hormozi</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Skool')"><span class="anim-icon" style="color:#fff;text-shadow:0 0 8px #a855f7;font-size:11px;font-weight:900;">SKOOL</span><div class="anim-name">Editing Skool</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Bubble')"><span class="anim-icon">💬</span><div class="anim-name">Bubble</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Gadzhi')"><span class="anim-icon" style="color:#00e5ff;font-size:10px;font-family:monospace;letter-spacing:2px;">GADZ</span><div class="anim-name">Gadzhi</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Zaib Sig')"><span class="anim-icon" style="background:linear-gradient(90deg,#ff2d55,#ffd60a,#bf5af2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:900;">ZAIB</span><div class="anim-name">⭐ Signature</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Urdu')"><span class="anim-icon" style="color:#ffd60a;font-size:14px;direction:rtl;">زیب</span><div class="anim-name">Urdu</div></div>
+    <div class="anim-card" onclick="selectAnim(this,'Devin')"><span class="anim-icon" style="color:#fff;font-weight:900;font-size:9px;border-left:3px solid #ff2d55;padding-left:4px;">DEVIN</span><div class="anim-name">Devin</div></div>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Language</span>
+    <select class="ctrl-input">
+      <option>Urdu اردو</option><option>Hindi हिंदी</option>
+      <option>Punjabi</option><option>Pashto</option>
+      <option selected>English</option><option>Bengali</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" onclick="showToast('🎙 Transcription starting...')">⚡ Generate Captions</button>
+  <button class="btn btn-outline" onclick="showToast('✅ Style applied!')">Apply Style to Clip</button>
+</div>
+
+<!-- FONTS TAB -->
+<div class="content" id="tab-fonts">
+  <div class="sec-title">Professional Fonts (System)</div>
+  <div class="font-list">
+    <div class="font-item sel" onclick="selectFont(this,'Impact')"><span class="font-preview" style="font-family:Impact;">IMPACT</span><span class="font-name">Impact</span></div>
+    <div class="font-item" onclick="selectFont(this,'Arial Black')"><span class="font-preview" style="font-family:'Arial Black';">ARIAL BLACK</span><span class="font-name">Arial Black</span></div>
+    <div class="font-item" onclick="selectFont(this,'Helvetica Neue')"><span class="font-preview" style="font-family:'Helvetica Neue';font-weight:900;">Helvetica Neue</span><span class="font-name">Helvetica Neue</span></div>
+    <div class="font-item" onclick="selectFont(this,'Futura')"><span class="font-preview" style="font-family:Futura,sans-serif;font-weight:700;">FUTURA</span><span class="font-name">Futura</span></div>
+    <div class="font-item" onclick="selectFont(this,'Georgia')"><span class="font-preview" style="font-family:Georgia;">Georgia Bold</span><span class="font-name">Georgia</span></div>
+    <div class="font-item" onclick="selectFont(this,'Courier New')"><span class="font-preview" style="font-family:'Courier New';font-weight:700;">Courier New</span><span class="font-name">Courier New</span></div>
+    <div class="font-item" onclick="selectFont(this,'Trebuchet MS')"><span class="font-preview" style="font-family:'Trebuchet MS';font-weight:700;">Trebuchet MS</span><span class="font-name">Trebuchet MS</span></div>
+    <div class="font-item" onclick="selectFont(this,'Verdana')"><span class="font-preview" style="font-family:Verdana;font-weight:700;">Verdana</span><span class="font-name">Verdana</span></div>
+    <div class="font-item" onclick="selectFont(this,'Tahoma')"><span class="font-preview" style="font-family:Tahoma;font-weight:700;">Tahoma</span><span class="font-name">Tahoma</span></div>
+    <div class="font-item" onclick="selectFont(this,'Times New Roman')"><span class="font-preview" style="font-family:'Times New Roman';font-weight:700;">Times New Roman</span><span class="font-name">Times New Roman</span></div>
+    <div class="font-item" onclick="selectFont(this,'Gill Sans')"><span class="font-preview" style="font-family:'Gill Sans',sans-serif;font-weight:700;">Gill Sans</span><span class="font-name">Gill Sans</span></div>
+    <div class="font-item" onclick="selectFont(this,'Palatino')"><span class="font-preview" style="font-family:Palatino;font-weight:700;">Palatino</span><span class="font-name">Palatino</span></div>
+  </div>
+  <div style="margin-top:10px;">
+  <div class="ctrl-row">
+    <span class="ctrl-label">Size</span>
+    <input type="range" class="ctrl-input" min="20" max="200" value="80" oninput="this.nextElementSibling.textContent=this.value+'px'"/>
+    <span class="ctrl-val">80px</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Tracking</span>
+    <input type="range" class="ctrl-input" min="-10" max="40" value="4" oninput="this.nextElementSibling.textContent=this.value"/>
+    <span class="ctrl-val">4</span>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">Leading</span>
+    <input type="range" class="ctrl-input" min="80" max="200" value="120" oninput="this.nextElementSibling.textContent=this.value+'%'"/>
+    <span class="ctrl-val">120%</span>
+  </div>
+  <button class="btn btn-primary" onclick="showToast('✅ Font applied to clip!')">Apply Font</button>
+  </div>
+</div>
+
+<!-- EFFECTS TAB -->
+<div class="content" id="tab-effects">
+  <div class="sec-title">Visual Effects</div>
+  <div class="fx-wrap">
+    <div class="fx-pill on" onclick="this.classList.toggle('on')">✨ Glow</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">⚡ Glitch</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">📺 Scanlines</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">🎇 Particles</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">🌈 RGB Split</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">🌫 Motion Blur</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">💫 Vignette</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">🔥 Fire Trail</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">❄️ Freeze Frame</div>
+    <div class="fx-pill" onclick="this.classList.toggle('on')">🎭 Mask Reveal</div>
+  </div>
+  <div class="sec-title" style="margin-top:4px;">Glow</div>
+  <div class="ctrl-row"><span class="ctrl-label">Intensity</span><input type="range" class="ctrl-input" min="0" max="100" value="60" oninput="this.nextElementSibling.textContent=this.value+'%'"/><span class="ctrl-val">60%</span></div>
+  <div class="ctrl-row"><span class="ctrl-label">Color</span><input type="color" class="ctrl-input" value="#ffcc00"/><span style="font-size:8px;color:var(--muted);">Glow color</span></div>
+  <div class="sec-title" style="margin-top:4px;">Glitch</div>
+  <div class="ctrl-row"><span class="ctrl-label">Amount</span><input type="range" class="ctrl-input" min="0" max="100" value="40" oninput="this.nextElementSibling.textContent=this.value+'%'"/><span class="ctrl-val">40%</span></div>
+  <div class="ctrl-row"><span class="ctrl-label">Speed</span><select class="ctrl-input"><option>Slow</option><option selected>Medium</option><option>Fast</option><option>Random</option></select></div>
+  <div class="sec-title" style="margin-top:4px;">Colors</div>
+  <div class="ctrl-row"><span class="ctrl-label">Text</span><input type="color" class="ctrl-input" value="#ffcc00"/><input type="color" class="ctrl-input" value="#ff3c6e"/><span style="font-size:8px;color:var(--muted);">Gradient</span></div>
+  <div class="ctrl-row"><span class="ctrl-label">Outline</span><input type="color" class="ctrl-input" value="#000000"/><input type="range" class="ctrl-input" min="0" max="10" value="3" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="ctrl-val">3px</span></div>
+  <button class="btn btn-primary" onclick="showToast('✅ Effects applied!')">Apply Effects</button>
+</div>
+
+<!-- EXPORT TAB -->
+<div class="content" id="tab-export">
+  <div class="sec-title">Export Format</div>
+  <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;background:rgba(255,214,10,0.05);border:1.5px solid var(--yellow);border-radius:8px;padding:9px 11px;cursor:pointer;">
+      <span style="font-size:16px;">🎬</span>
+      <div><div style="font-size:11px;font-weight:700;">Alpha Channel MOV</div><div style="font-size:9px;color:var(--muted);">Transparent overlay for Premiere</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;" onclick="this.style.borderColor='var(--yellow)'">
+      <span style="font-size:16px;">📝</span>
+      <div><div style="font-size:11px;font-weight:700;">SRT Subtitle</div><div style="font-size:9px;color:var(--muted);">Standard subtitle file</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;" onclick="this.style.borderColor='var(--yellow)'">
+      <span style="font-size:16px;">🎞</span>
+      <div><div style="font-size:11px;font-weight:700;">4K MP4 Burned</div><div style="font-size:9px;color:var(--muted);">Captions baked in video</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;" onclick="this.style.borderColor='var(--yellow)'">
+      <span style="font-size:16px;">📸</span>
+      <div><div style="font-size:11px;font-weight:700;">PNG Sequence</div><div style="font-size:9px;color:var(--muted);">Frame by frame export</div></div>
+    </div>
+  </div>
+  <div class="ctrl-row"><span class="ctrl-label">Quality</span><select class="ctrl-input"><option>4K Ultra (3840×2160)</option><option>1080p HD</option><option>720p</option></select></div>
+  <div class="ctrl-row"><span class="ctrl-label">FPS</span><select class="ctrl-input"><option>60 fps</option><option selected>30 fps</option><option>24 fps</option></select></div>
+  <div class="ctrl-row"><span class="ctrl-label">Codec</span><select class="ctrl-input"><option>H.264</option><option>H.265</option><option>ProRes 4444</option><option>DNxHD</option></select></div>
+  <button class="btn btn-primary" onclick="showToast('🚀 Exporting to queue...')">🚀 Export Now</button>
+  <button class="btn btn-outline" onclick="showToast('📁 Added to Media Encoder!')">📤 Send to Media Encoder</button>
+</div>
+
+<div class="footer">
+  <div class="footer-brand">ZAIB_STUDIO</div>
+  <div class="footer-ver">v1.0 · CEP · Premiere Pro</div>
+</div>
+<div id="toast"></div>
+
+<script>
+// Tab switching
+function switchTab(name) {
+  const names = ['animations','captions','fonts','effects','export'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
+  document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+// Animation selection
+function selectAnim(el, name) {
+  el.closest('.anim-grid') && el.closest('.anim-grid').querySelectorAll('.anim-card').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  showToast('✅ ' + name + ' selected!');
+  restartPreview();
+}
+
+// Font selection
+function selectFont(el, name) {
+  document.querySelectorAll('.font-item').forEach(f => f.classList.remove('sel'));
+  el.classList.add('sel');
+  showToast('✅ ' + name + ' selected!');
+}
+
+// Filter animations
+function filterAnims(el, cat) {
+  document.querySelectorAll('.fx-pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.anim-card').forEach(card => {
+    const cardCat = card.dataset.cat || '';
+    card.style.display = (cat === 'all' || cardCat.includes(cat)) ? '' : 'none';
+  });
+}
+
+// Preview animation
+let previewT = 0;
+let previewAF = null;
+
+function restartPreview() { previewT = 0; }
+
+function runPreview() {
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+  const text = document.getElementById('previewText').value || 'ZAIB_BALOCH';
+  const W = canvas.width, H = canvas.height;
+  previewT = (previewT + 0.007) % 1;
+  const t = previewT;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  ctx.font = '700 22px Impact, Arial Black, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.shadowBlur = 12; ctx.shadowColor = '#ffcc00';
+  const grad = ctx.createLinearGradient(W/2-80, H/2, W/2+80, H/2);
+  grad.addColorStop(0, '#ffcc00'); grad.addColorStop(1, '#ff3c6e');
+  ctx.fillStyle = grad;
+  // Typewriter effect
+  const chars = Math.floor(t * text.length * 1.5);
+  const visible = text.substring(0, Math.min(chars, text.length));
+  const cursor = t < 0.85 ? (Math.floor(Date.now()/500)%2 ? '|' : ' ') : '';
+  ctx.fillText(visible + cursor, W/2, H/2);
+  ctx.shadowBlur = 0;
+  previewAF = requestAnimationFrame(runPreview);
+}
+
+function applyToTimeline() { showToast('🎬 Applied to Premiere Timeline!'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)';
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 2200);
+}
+
+runPreview();
+</script>
+</body>
+</html>

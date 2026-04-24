@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Translate — Zaib Caption Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  const firebaseConfig = { apiKey:"AIzaSyDX_Z7L6V6hOZEjJj94EjIKucvHY9JxHCM", authDomain:"zaib-caption-studio.firebaseapp.com", projectId:"zaib-caption-studio", storageBucket:"zaib-caption-studio.firebasestorage.app", messagingSenderId:"767878521082", appId:"1:767878521082:web:b20908c5a208973928a943" };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  onAuthStateChanged(auth, user => { if (!user) window.location.href = "login.html"; });
+</script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#060608;--surface:#0f0f14;--card:#14141c;--border:#1e1e2e;--red:#ff2d55;--yellow:#ffd60a;--cyan:#00e5ff;--purple:#bf5af2;--green:#34c759;--text:#f5f5f7;--muted:#6e6e80;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;text-decoration:none;background:linear-gradient(90deg,#fff,var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{background:linear-gradient(90deg,var(--red),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;border-left:1px solid var(--border);padding-left:16px;}
+.back{margin-left:auto;padding:8px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;}
+.container{max-width:900px;margin:0 auto;padding:40px 24px;}
+.translate-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start;margin-bottom:20px;}
+.lang-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.lang-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.lang-select{background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;outline:none;cursor:pointer;}
+.lang-select option{background:var(--card);}
+.char-count{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;}
+.lang-textarea{width:100%;background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;padding:16px;resize:none;outline:none;min-height:200px;}
+.lang-textarea::placeholder{color:var(--muted);}
+.swap-btn{width:44px;height:44px;background:var(--card);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all 0.2s;flex-shrink:0;margin-top:56px;}
+.swap-btn:hover{border-color:var(--purple);background:rgba(191,90,242,0.1);}
+.translate-btn{width:100%;padding:14px;background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;letter-spacing:1px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 20px rgba(191,90,242,0.3);margin-bottom:20px;}
+.translate-btn:hover{transform:translateY(-1px);}
+.translate-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.history-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;}
+.history-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;margin-bottom:16px;}
+.history-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;}
+.history-langs{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.history-text{font-size:13px;color:var(--text);}
+.history-translation{font-size:13px;color:var(--cyan);margin-top:6px;direction:rtl;}
+.copy-btn{font-size:11px;color:var(--muted);background:var(--border);border:none;padding:3px 10px;border-radius:20px;cursor:pointer;margin-top:8px;}
+.copy-btn:hover{color:var(--text);}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+@media(max-width:600px){.translate-grid{grid-template-columns:1fr;} .swap-btn{margin:0 auto;transform:rotate(90deg);}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="dashboard.html" class="logo">ZAIB<span>_CAPTION</span></a>
+  <div class="page-title">TRANSLATE</div>
+  <a href="dashboard.html" class="back">← Dashboard</a>
+</div>
+<div class="container">
+  <div class="translate-grid">
+    <div class="lang-card">
+      <div class="lang-header">
+        <select class="lang-select" id="fromLang">
+          <option value="ur">Urdu اردو</option>
+          <option value="hi">Hindi हिंदी</option>
+          <option value="pa">Punjabi</option>
+          <option value="ps">Pashto پښتو</option>
+          <option value="sd">Sindhi</option>
+          <option value="en" selected>English</option>
+          <option value="bn">Bengali</option>
+        </select>
+        <span class="char-count" id="charCount">0 / 5000</span>
+      </div>
+      <textarea class="lang-textarea" id="sourceText" placeholder="Yahan text likho ya paste karo..." oninput="updateCount()"></textarea>
+    </div>
+    <div class="swap-btn" onclick="swapLangs()" title="Swap languages">⇄</div>
+    <div class="lang-card">
+      <div class="lang-header">
+        <select class="lang-select" id="toLang">
+          <option value="en" selected>English</option>
+          <option value="ur">Urdu اردو</option>
+          <option value="hi">Hindi हिंदी</option>
+          <option value="pa">Punjabi</option>
+          <option value="ps">Pashto</option>
+          <option value="bn">Bengali</option>
+        </select>
+      </div>
+      <textarea class="lang-textarea" id="resultText" placeholder="Translation yahan aayegi..." readonly style="color:var(--cyan);"></textarea>
+    </div>
+  </div>
+  <button class="translate-btn" id="translateBtn" onclick="doTranslate()">
+    🌍 Translate
+  </button>
+  <div class="history-card">
+    <div class="history-title">Recent Translations</div>
+    <div id="historyList">
+      <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Koi translation nahi abhi tak</div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const ASSEMBLY_KEY = "f138ce4d68b44c73bd16f8a2acfb2052";
+let history = [];
+
+function updateCount() {
+  const len = document.getElementById('sourceText').value.length;
+  document.getElementById('charCount').textContent = len + ' / 5000';
+}
+
+function swapLangs() {
+  const fl = document.getElementById('fromLang');
+  const tl = document.getElementById('toLang');
+  const src = document.getElementById('sourceText');
+  const res = document.getElementById('resultText');
+  [fl.value, tl.value] = [tl.value, fl.value];
+  src.value = res.value;
+  res.value = '';
+  updateCount();
+}
+
+async function doTranslate() {
+  const text = document.getElementById('sourceText').value.trim();
+  if (!text) { showToast('Kuch text likho pehle!'); return; }
+  if (text.length > 5000) { showToast('Text 5000 characters se zyada nahi ho sakta!'); return; }
+
+  const btn = document.getElementById('translateBtn');
+  btn.innerHTML = '<span class="spinner"></span> Translating...';
+  btn.disabled = true;
+
+  const fromLang = document.getElementById('fromLang').value;
+  const toLang = document.getElementById('toLang').value;
+
+  try {
+    // Use MyMemory free translation API
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const translated = data.responseData?.translatedText || 'Translation failed';
+    document.getElementById('resultText').value = translated;
+    document.getElementById('resultText').style.direction = toLang === 'ur' || toLang === 'ps' || toLang === 'sd' ? 'rtl' : 'ltr';
+
+    // Add to history
+    history.unshift({ from: fromLang, to: toLang, source: text, result: translated });
+    renderHistory();
+    showToast('Translation ready!');
+  } catch(err) {
+    showToast('Error: ' + err.message);
+  }
+  btn.innerHTML = '🌍 Translate';
+  btn.disabled = false;
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Koi translation nahi abhi tak</div>'; return; }
+  list.innerHTML = history.slice(0,5).map((h,i) => `
+    <div class="history-item">
+      <div class="history-langs">${h.from.toUpperCase()} → ${h.to.toUpperCase()}</div>
+      <div class="history-text">${h.source.substring(0,100)}${h.source.length>100?'...':''}</div>
+      <div class="history-translation" style="direction:${h.to==='ur'||h.to==='ps'?'rtl':'ltr'}">${h.result.substring(0,100)}${h.result.length>100?'...':''}</div>
+      <button class="copy-btn" onclick="navigator.clipboard.writeText('${h.result.replace(/'/g,"\\'")}');showToast('Copied!')">📋 Copy</button>
+    </div>
+  `).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)';
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 2500);
+}
+</script>
+</body>
+</html>

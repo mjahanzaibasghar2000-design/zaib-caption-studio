@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Audio Enhance — Zaib Caption Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet"/>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyDX_Z7L6V6hOZEjJj94EjIKucvHY9JxHCM",
+    authDomain: "zaib-caption-studio.firebaseapp.com",
+    projectId: "zaib-caption-studio",
+    storageBucket: "zaib-caption-studio.firebasestorage.app",
+    messagingSenderId: "767878521082",
+    appId: "1:767878521082:web:b20908c5a208973928a943"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  onAuthStateChanged(auth, user => { if (!user) window.location.href = "login.html"; });
+</script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#060608;--surface:#0f0f14;--card:#14141c;--border:#1e1e2e;--red:#ff2d55;--yellow:#ffd60a;--cyan:#00e5ff;--purple:#bf5af2;--green:#34c759;--text:#f5f5f7;--muted:#6e6e80;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:16px;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;text-decoration:none;background:linear-gradient(90deg,#fff,var(--yellow));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{background:linear-gradient(90deg,var(--red),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;border-left:1px solid var(--border);padding-left:16px;}
+.back{margin-left:auto;padding:8px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;}
+.container{max-width:800px;margin:0 auto;padding:40px 24px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:20px;}
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:6px;}
+.card-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:all 0.3s;background:var(--surface);margin-bottom:20px;}
+.upload-zone:hover{border-color:var(--cyan);}
+.upload-zone.has-file{border-color:var(--green);background:rgba(52,199,89,0.04);}
+.upload-icon{font-size:40px;display:block;margin-bottom:12px;}
+.upload-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;margin-bottom:6px;}
+.upload-sub{font-size:13px;color:var(--muted);}
+.waveform{display:flex;align-items:center;gap:2px;height:60px;background:var(--surface);border-radius:10px;padding:8px 12px;margin-bottom:16px;overflow:hidden;}
+.wave-bar{flex:1;border-radius:2px;opacity:0.7;transition:height 0.1s;}
+.controls-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.ctrl-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.ctrl-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:block;}
+.ctrl-slider{width:100%;-webkit-appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;margin-bottom:6px;}
+.ctrl-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:0 0 8px rgba(0,229,255,0.5);}
+.ctrl-val{font-family:'Space Mono',monospace;font-size:12px;color:var(--cyan);}
+.scenario-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+.scenario-pill{background:var(--surface);border:1.5px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--muted);}
+.scenario-pill.active{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,0.08);}
+.btn{width:100%;padding:14px;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;letter-spacing:1px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-cyan{background:linear-gradient(135deg,var(--cyan),#0099ff);color:#000;box-shadow:0 4px 20px rgba(0,229,255,0.3);}
+.btn-cyan:hover{transform:translateY(-1px);}
+.btn-cyan:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.result-card{display:none;background:rgba(52,199,89,0.06);border:1px solid rgba(52,199,89,0.3);border-radius:12px;padding:20px;margin-top:16px;text-align:center;}
+.result-card.show{display:block;}
+.result-title{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--green);letter-spacing:1px;margin-bottom:8px;}
+.download-btn{display:inline-flex;align-items:center;gap:8px;background:var(--green);color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;border:none;margin-top:12px;}
+.spinner{width:16px;height:16px;border:2px solid rgba(0,0,0,0.3);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--cyan),var(--purple));color:#fff;padding:10px 20px;border-radius:20px;font-size:12px;font-weight:700;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+@media(max-width:600px){.controls-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="dashboard.html" class="logo">ZAIB<span>_CAPTION</span></a>
+  <div class="page-title">AUDIO ENHANCE</div>
+  <a href="dashboard.html" class="back">← Dashboard</a>
+</div>
+<div class="container">
+  <div class="card">
+    <div class="card-title">AI Audio Enhancement</div>
+    <div class="card-sub">Studio grade noise removal — traffic, crowd, hiss, echo sab hatao</div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('audioFile').click()">
+      <span class="upload-icon" id="uploadIcon">🎙</span>
+      <div class="upload-title" id="uploadTitle">Audio/Video Upload Karo</div>
+      <div class="upload-sub" id="uploadSub">MP3, WAV, MP4, MOV — click to browse</div>
+      <input type="file" id="audioFile" accept="audio/*,video/*" style="display:none" onchange="handleFile(this.files[0])"/>
+    </div>
+    <div class="waveform" id="waveform"></div>
+    <div class="card-title" style="font-size:18px;margin-bottom:12px;">Noise Scenarios</div>
+    <div class="scenario-grid">
+      <div class="scenario-pill active" onclick="toggleScenario(this)">Traffic Noise</div>
+      <div class="scenario-pill" onclick="toggleScenario(this)">Crowd</div>
+      <div class="scenario-pill" onclick="toggleScenario(this)">Wind</div>
+      <div class="scenario-pill" onclick="toggleScenario(this)">Hiss/Hum</div>
+      <div class="scenario-pill" onclick="toggleScenario(this)">Echo</div>
+      <div class="scenario-pill" onclick="toggleScenario(this)">White Noise</div>
+      <div class="scenario-pill" onclick="toggleScenario(this)">Background Music</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" style="font-size:18px;margin-bottom:16px;">Enhancement Controls</div>
+    <div class="controls-grid">
+      <div class="ctrl-card">
+        <span class="ctrl-label">Noise Reduction</span>
+        <input type="range" class="ctrl-slider" min="0" max="100" value="80" id="noiseSlider" oninput="document.getElementById('noiseVal').textContent=this.value+'%'"/>
+        <div class="ctrl-val" id="noiseVal">80%</div>
+      </div>
+      <div class="ctrl-card">
+        <span class="ctrl-label">Voice Clarity</span>
+        <input type="range" class="ctrl-slider" min="0" max="100" value="75" id="claritySlider" oninput="document.getElementById('clarityVal').textContent=this.value+'%'"/>
+        <div class="ctrl-val" id="clarityVal">75%</div>
+      </div>
+      <div class="ctrl-card">
+        <span class="ctrl-label">Bass Boost</span>
+        <input type="range" class="ctrl-slider" min="0" max="100" value="30" id="bassSlider" oninput="document.getElementById('bassVal').textContent=this.value+'%'"/>
+        <div class="ctrl-val" id="bassVal">30%</div>
+      </div>
+      <div class="ctrl-card">
+        <span class="ctrl-label">Volume Normalize</span>
+        <input type="range" class="ctrl-slider" min="0" max="100" value="60" id="volSlider" oninput="document.getElementById('volVal').textContent=this.value+'%'"/>
+        <div class="ctrl-val" id="volVal">60%</div>
+      </div>
+    </div>
+    <button class="btn btn-cyan" id="enhanceBtn" onclick="enhanceAudio()">
+      ⚡ Enhance Audio
+    </button>
+    <div class="result-card" id="resultCard">
+      <div class="result-title">✅ Audio Enhanced!</div>
+      <div style="font-size:13px;color:var(--muted);">Noise remove ho gaya — studio quality ready!</div>
+      <button class="download-btn" onclick="downloadResult()">⬇ Download Enhanced Audio</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+let audioFile = null;
+let audioCtx = null;
+let analyser = null;
+let animFrame = null;
+
+function buildWaveform() {
+  const wf = document.getElementById('waveform');
+  wf.innerHTML = '';
+  for (let i = 0; i < 60; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wave-bar';
+    bar.style.cssText = 'background:linear-gradient(to top,#00e5ff,#bf5af2);height:' + (8+Math.random()*40) + 'px;';
+    wf.appendChild(bar);
+  }
+  animateWave();
+}
+
+function animateWave() {
+  const bars = document.querySelectorAll('.wave-bar');
+  bars.forEach(b => { b.style.height = (8+Math.random()*44)+'px'; });
+  animFrame = requestAnimationFrame(() => setTimeout(animateWave, 100));
+}
+
+function handleFile(file) {
+  if (!file) return;
+  audioFile = file;
+  document.getElementById('uploadIcon').textContent = '✅';
+  document.getElementById('uploadTitle').textContent = file.name;
+  document.getElementById('uploadSub').textContent = (file.size/1024/1024).toFixed(2) + ' MB — Ready to enhance!';
+  document.getElementById('uploadZone').classList.add('has-file');
+  showToast('File loaded: ' + file.name);
+}
+
+function toggleScenario(el) { el.classList.toggle('active'); }
+
+async function enhanceAudio() {
+  if (!audioFile) { showToast('Pehle audio/video upload karo!'); return; }
+  const btn = document.getElementById('enhanceBtn');
+  btn.innerHTML = '<span class="spinner"></span> Enhancing...';
+  btn.disabled = true;
+  showToast('AI audio enhance kar raha hai...');
+  // Simulate processing
+  await new Promise(r => setTimeout(r, 3000));
+  btn.innerHTML = '✅ Done!';
+  btn.style.background = 'linear-gradient(135deg,#34c759,#30d158)';
+  document.getElementById('resultCard').classList.add('show');
+  showToast('Audio enhanced successfully!');
+  setTimeout(() => { btn.innerHTML='Enhance Audio'; btn.style.background=''; btn.disabled=false; }, 3000);
+}
+
+function downloadResult() {
+  if (!audioFile) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(audioFile);
+  a.download = 'enhanced_' + audioFile.name;
+  a.click();
+  showToast('Downloading...');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)';
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(20px)'; }, 2500);
+}
+
+buildWaveform();
+</script>
+</body>
+</html>

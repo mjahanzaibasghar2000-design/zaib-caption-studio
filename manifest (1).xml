@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.zaibstudio.v2" ExtensionBundleVersion="2.0.0">
+  <ExtensionList>
+    <Extension Id="com.zaibstudio.v2.panel" Version="2.0.0"/>
+  </ExtensionList>
+  <ExecutionEnvironment>
+    <HostList>
+      <Host Name="PPRO" Version="[13.0,99.9]"/>
+    </HostList>
+    <LocaleList><Locale Code="All"/></LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0"/>
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+  <DispatchInfoList>
+    <Extension Id="com.zaibstudio.v2.panel">
+      <DispatchInfo>
+        <Resources><MainPath>./index.html</MainPath></Resources>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>Zaib Studio v2 — Caption + Animation</Menu>
+          <Geometry>
+            <Size><Height>850</Height><Width>320</Width></Size>
+            <MinSize><Height>500</Height><Width>280</Width></MinSize>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>

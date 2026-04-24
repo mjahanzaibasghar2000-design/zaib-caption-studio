@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Zaib Studio — Premiere Pro</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#08080c;--s1:#0f0f15;--s2:#161620;--s3:#1e1e2a;--br:#252535;--red:#ff2d55;--yel:#ffd60a;--cyn:#00e5ff;--pur:#bf5af2;--grn:#34c759;--tx:#f0f0f7;--mu:#5a5a78;}
+body{background:var(--bg);color:var(--tx);font-family:Arial,Helvetica,sans-serif;font-size:11px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+.header{background:var(--s1);border-bottom:1px solid var(--br);padding:9px 12px;flex-shrink:0;position:relative;}
+.header::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),var(--yel),var(--cyn),var(--pur));}
+.h-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+.h-logo{font-size:15px;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#fff,var(--yel));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.h-logo b{background:linear-gradient(90deg,var(--red),var(--pur));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.h-badge{background:linear-gradient(135deg,var(--red),var(--pur));color:#fff;font-size:7px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:1px;}
+.h-sub{font-size:8px;color:var(--mu);letter-spacing:1px;}
+
+/* License bar */
+.lic-bar{display:flex;align-items:center;gap:7px;background:rgba(52,199,89,0.07);border-bottom:1px solid rgba(52,199,89,0.15);padding:6px 12px;flex-shrink:0;}
+.lic-dot{width:6px;height:6px;background:var(--grn);border-radius:50%;box-shadow:0 0 6px var(--grn);flex-shrink:0;}
+.lic-text{font-size:9px;font-weight:600;color:var(--grn);}
+.lic-text small{color:var(--mu);font-weight:400;}
+
+/* Tabs */
+.tabs{display:flex;background:var(--s1);border-bottom:1px solid var(--br);overflow-x:auto;flex-shrink:0;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{padding:7px 10px;font-size:8px;font-weight:700;letter-spacing:0.5px;color:var(--mu);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;text-transform:uppercase;}
+.tab.on{color:var(--tx);border-bottom-color:var(--red);}
+
+.content{display:none;flex:1;overflow-y:auto;padding:10px;}
+.content.on{display:block;}
+
+.sec{font-size:7px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:7px;display:flex;align-items:center;gap:5px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--br);}
+
+/* Category pills */
+.cats{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
+.cat{background:var(--s2);border:1px solid var(--br);border-radius:20px;padding:3px 9px;font-size:8px;font-weight:600;cursor:pointer;color:var(--mu);transition:all 0.15s;}
+.cat.on{border-color:var(--cyn);color:var(--cyn);background:rgba(0,229,255,0.07);}
+
+/* Animation grid */
+.ag{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px;}
+.ac{background:var(--s2);border:1.5px solid var(--br);border-radius:7px;padding:7px 4px;cursor:pointer;text-align:center;transition:all 0.15s;position:relative;}
+.ac:hover{border-color:var(--mu);}
+.ac.on{border-color:var(--yel);background:rgba(255,214,10,0.05);}
+.ac.on::after{content:'✓';position:absolute;top:3px;right:5px;color:var(--yel);font-size:8px;font-weight:900;}
+.ai{font-size:18px;display:block;margin-bottom:3px;}
+.an{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;color:var(--mu);}
+
+/* Preview canvas */
+.prev-wrap{background:#000;border-radius:7px;overflow:hidden;margin-bottom:8px;border:1px solid var(--br);position:relative;}
+.prev-canvas{width:100%;height:80px;display:block;}
+.prev-lbl{position:absolute;top:5px;left:7px;font-size:7px;color:rgba(255,255,255,0.25);letter-spacing:1px;}
+
+/* Controls */
+.cr{display:flex;align-items:center;gap:5px;margin-bottom:7px;}
+.cl{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mu);min-width:44px;}
+.ci{flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;color:var(--tx);font-family:Arial;font-size:10px;padding:4px 7px;outline:none;}
+.ci:focus{border-color:var(--cyn);}
+select.ci{cursor:pointer;}
+input[type=range].ci{padding:0;height:3px;-webkit-appearance:none;background:var(--br);border:none;}
+input[type=range].ci::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--red);border-radius:50%;cursor:pointer;}
+input[type=color].ci{width:24px;height:20px;padding:1px;cursor:pointer;}
+.cv{font-size:8px;color:var(--yel);min-width:24px;text-align:right;font-family:monospace;}
+
+/* Font list */
+.fl{display:flex;flex-direction:column;gap:3px;max-height:220px;overflow-y:auto;}
+.fi{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:6px 9px;cursor:pointer;transition:all 0.15s;}
+.fi:hover{border-color:var(--mu);}
+.fi.on{border-color:var(--cyn);}
+.fp{font-size:14px;font-weight:700;flex:1;}
+.ft{font-size:8px;color:var(--mu);}
+
+/* Effects */
+.fxw{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.fx{display:inline-flex;align-items:center;gap:3px;background:var(--s2);border:1px solid var(--br);border-radius:20px;padding:3px 8px;font-size:8px;font-weight:600;cursor:pointer;color:var(--mu);transition:all 0.15s;}
+.fx.on{border-color:var(--cyn);color:var(--cyn);background:rgba(0,229,255,0.07);}
+
+/* Buttons */
+.btn{width:100%;padding:8px;border:none;border-radius:6px;font-family:Arial;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-bottom:5px;}
+.btn-r{background:linear-gradient(135deg,var(--red),#ff6b35);color:#fff;box-shadow:0 3px 10px rgba(255,45,85,0.3);}
+.btn-p{background:linear-gradient(135deg,var(--pur),var(--cyn));color:#fff;}
+.btn-o{background:transparent;border:1.5px solid var(--br);color:var(--mu);}
+.btn-o:hover{border-color:var(--cyn);color:var(--tx);}
+
+/* Export opts */
+.eo{display:flex;align-items:center;gap:8px;background:var(--s2);border:1.5px solid var(--br);border-radius:7px;padding:8px 10px;cursor:pointer;margin-bottom:5px;transition:all 0.15s;}
+.eo:hover{border-color:var(--yel);}
+.eo.on{border-color:var(--yel);background:rgba(255,214,10,0.04);}
+.eo-icon{font-size:14px;}
+.eo-name{font-size:10px;font-weight:700;}
+.eo-desc{font-size:8px;color:var(--mu);}
+
+.footer{padding:6px 12px;border-top:1px solid var(--br);background:var(--s1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.fb{font-size:9px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,var(--red),var(--yel));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.fv{font-size:7px;color:var(--mu);}
+
+#toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--red),var(--pur));color:#fff;padding:6px 14px;border-radius:20px;font-size:9px;font-weight:700;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="h-row"><div class="h-logo">ZAIB<b>_STUDIO</b></div><div class="h-badge">PREMIERE PRO</div></div>
+  <div class="h-sub">Caption + Text Animation Plugin</div>
+</div>
+
+<div class="lic-bar">
+  <div class="lic-dot"></div>
+  <div class="lic-text">Pro Plan Active <small>· License verified</small></div>
+</div>
+
+<div class="tabs">
+  <div class="tab on" onclick="sw('anim')">Animations</div>
+  <div class="tab" onclick="sw('captions')">Captions</div>
+  <div class="tab" onclick="sw('fonts')">Fonts</div>
+  <div class="tab" onclick="sw('effects')">Effects</div>
+  <div class="tab" onclick="sw('style')">Style</div>
+  <div class="tab" onclick="sw('export')">Export</div>
+</div>
+
+<!-- ANIMATIONS -->
+<div class="content on" id="t-anim">
+  <div class="sec">50+ Animation Presets</div>
+  <div class="cats">
+    <div class="cat on" onclick="filterCat(this,'all')">All</div>
+    <div class="cat" onclick="filterCat(this,'trending')">🔥 Trending</div>
+    <div class="cat" onclick="filterCat(this,'text')">📝 Text</div>
+    <div class="cat" onclick="filterCat(this,'kinetic')">⚡ Kinetic</div>
+    <div class="cat" onclick="filterCat(this,'glitch')">💥 Glitch</div>
+    <div class="cat" onclick="filterCat(this,'3d')">🎲 3D</div>
+  </div>
+  <div class="ag" id="animGrid">
+    <div class="ac on" onclick="selAnim(this,'Typewriter')" data-c="trending text"><span class="ai">⌨️</span><div class="an">Typewriter</div></div>
+    <div class="ac" onclick="selAnim(this,'Fade Up')" data-c="trending text"><span class="ai">⬆️</span><div class="an">Fade Up</div></div>
+    <div class="ac" onclick="selAnim(this,'Glitch')" data-c="trending glitch"><span class="ai">⚡</span><div class="an">Glitch</div></div>
+    <div class="ac" onclick="selAnim(this,'Bounce')" data-c="trending kinetic"><span class="ai">🎯</span><div class="an">Bounce</div></div>
+    <div class="ac" onclick="selAnim(this,'Wave')" data-c="trending kinetic text"><span class="ai">🌊</span><div class="an">Wave</div></div>
+    <div class="ac" onclick="selAnim(this,'Word Split')" data-c="trending text"><span class="ai">✂️</span><div class="an">Word Split</div></div>
+    <div class="ac" onclick="selAnim(this,'Zoom In')" data-c="kinetic"><span class="ai">🔍</span><div class="an">Zoom In</div></div>
+    <div class="ac" onclick="selAnim(this,'Slide Left')" data-c="text"><span class="ai">⬅️</span><div class="an">Slide Left</div></div>
+    <div class="ac" onclick="selAnim(this,'Slide Right')" data-c="text"><span class="ai">➡️</span><div class="an">Slide Right</div></div>
+    <div class="ac" onclick="selAnim(this,'Reveal')" data-c="text"><span class="ai">🎭</span><div class="an">Reveal</div></div>
+    <div class="ac" onclick="selAnim(this,'Shake')" data-c="kinetic glitch"><span class="ai">💥</span><div class="an">Shake</div></div>
+    <div class="ac" onclick="selAnim(this,'Scramble')" data-c="glitch text"><span class="ai">🔀</span><div class="an">Scramble</div></div>
+    <div class="ac" onclick="selAnim(this,'Kinetic')" data-c="trending kinetic"><span class="ai">🎬</span><div class="an">Kinetic</div></div>
+    <div class="ac" onclick="selAnim(this,'Drop In')" data-c="kinetic"><span class="ai">⬇️</span><div class="an">Drop In</div></div>
+    <div class="ac" onclick="selAnim(this,'Flip')" data-c="3d kinetic"><span class="ai">🔄</span><div class="an">Flip 3D</div></div>
+    <div class="ac" onclick="selAnim(this,'RGB Split')" data-c="trending glitch"><span class="ai">🌈</span><div class="an">RGB Split</div></div>
+    <div class="ac" onclick="selAnim(this,'Neon')" data-c="trending"><span class="ai">💡</span><div class="an">Neon Glow</div></div>
+    <div class="ac" onclick="selAnim(this,'Fire')" data-c="trending kinetic"><span class="ai">🔥</span><div class="an">Fire</div></div>
+    <div class="ac" onclick="selAnim(this,'Matrix')" data-c="glitch"><span class="ai">🖥️</span><div class="an">Matrix</div></div>
+    <div class="ac" onclick="selAnim(this,'Elastic')" data-c="kinetic"><span class="ai">🎸</span><div class="an">Elastic</div></div>
+    <div class="ac" onclick="selAnim(this,'Rotate')" data-c="3d kinetic"><span class="ai">🌀</span><div class="an">Rotate</div></div>
+    <div class="ac" onclick="selAnim(this,'Blur In')" data-c="text"><span class="ai">🌫</span><div class="an">Blur In</div></div>
+    <div class="ac" onclick="selAnim(this,'Scale X')" data-c="kinetic"><span class="ai">↔️</span><div class="an">Scale X</div></div>
+    <div class="ac" onclick="selAnim(this,'Stagger')" data-c="trending text"><span class="ai">📊</span><div class="an">Stagger</div></div>
+  </div>
+  <div class="sec">Preview</div>
+  <div class="prev-wrap"><canvas class="prev-canvas" id="pCanvas" width="260" height="80"></canvas><div class="prev-lbl">PREVIEW</div></div>
+  <div class="cr"><span class="cl">Text</span><input type="text" class="ci" id="pText" value="ZAIB_BALOCH" oninput="rPreview()"/></div>
+  <div class="cr"><span class="cl">Duration</span><input type="range" class="ci" min="1" max="10" value="3" oninput="this.nextElementSibling.textContent=this.value+'s'"/><span class="cv">3s</span></div>
+  <button class="btn btn-r" onclick="toast('🎬 Applied to Timeline!')">▶ Apply to Timeline</button>
+  <button class="btn btn-o" onclick="toast('👁 Previewing...')">👁 Preview</button>
+</div>
+
+<!-- CAPTIONS -->
+<div class="content" id="t-captions">
+  <div class="sec">Caption Styles</div>
+  <div class="ag">
+    <div class="ac on" onclick="selAnim(this,'MrBeast')"><span class="ai" style="color:#ffcc00;font-size:11px;font-weight:900;text-shadow:1px 1px 0 #f30,-1px -1px 0 #000;">BEAST</span><div class="an">MrBeast</div></div>
+    <div class="ac" onclick="selAnim(this,'Hormozi')"><span class="ai" style="color:#000;background:#fff;font-size:9px;font-weight:900;border-radius:3px;padding:1px 4px;">HORMO</span><div class="an">Hormozi</div></div>
+    <div class="ac" onclick="selAnim(this,'Skool')"><span class="ai" style="color:#fff;text-shadow:0 0 8px #a855f7;font-size:11px;font-weight:900;">SKOOL</span><div class="an">Skool</div></div>
+    <div class="ac" onclick="selAnim(this,'Bubble')"><span class="ai">💬</span><div class="an">Bubble</div></div>
+    <div class="ac" onclick="selAnim(this,'Gadzhi')"><span class="ai" style="color:#00e5ff;font-size:9px;font-family:monospace;letter-spacing:2px;">GDZH</span><div class="an">Gadzhi</div></div>
+    <div class="ac" onclick="selAnim(this,'Zaib Sig')"><span class="ai" style="background:linear-gradient(90deg,#ff2d55,#ffd60a,#bf5af2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:11px;font-weight:900;">ZAIB</span><div class="an">⭐ Zaib</div></div>
+    <div class="ac" onclick="selAnim(this,'Devin')"><span class="ai" style="color:#fff;font-weight:900;font-size:9px;border-left:3px solid #ff2d55;padding-left:4px;">DEVN</span><div class="an">Devin</div></div>
+    <div class="ac" onclick="selAnim(this,'Neon')"><span class="ai" style="color:#00e5ff;font-size:10px;font-family:monospace;text-shadow:0 0 10px #00e5ff;">NEON</span><div class="an">Neon</div></div>
+    <div class="ac" onclick="selAnim(this,'Urdu')"><span class="ai" style="color:#ffd60a;font-size:14px;direction:rtl;">زیب</span><div class="an">Urdu</div></div>
+    <div class="ac" onclick="selAnim(this,'Kinetic')"><span class="ai" style="color:#ffd60a;font-family:monospace;font-size:10px;">KNT</span><div class="an">Kinetic</div></div>
+  </div>
+  <div class="cr"><span class="cl">Language</span>
+    <select class="ci"><option>Urdu اردو</option><option>Hindi हिंदी</option><option>Punjabi</option><option>Pashto</option><option selected>English</option><option>Bengali</option></select>
+  </div>
+  <div class="cr"><span class="cl">Words/Cap</span><input type="range" class="ci" min="2" max="10" value="5" oninput="this.nextElementSibling.textContent=this.value"/><span class="cv">5</span></div>
+  <button class="btn btn-r" onclick="toast('🎙 Transcription queued!')">⚡ Generate Captions</button>
+  <button class="btn btn-o" onclick="toast('✅ Style applied to clip!')">Apply Style to Clip</button>
+</div>
+
+<!-- FONTS -->
+<div class="content" id="t-fonts">
+  <div class="sec">100+ Professional Fonts</div>
+  <div class="cats" style="margin-bottom:8px;">
+    <div class="cat on" onclick="filterFonts(this,'all')">All</div>
+    <div class="cat" onclick="filterFonts(this,'display')">Display</div>
+    <div class="cat" onclick="filterFonts(this,'condensed')">Condensed</div>
+    <div class="cat" onclick="filterFonts(this,'serif')">Serif</div>
+    <div class="cat" onclick="filterFonts(this,'tech')">Tech</div>
+    <div class="cat" onclick="filterFonts(this,'handwritten')">Hand</div>
+  </div>
+  <div class="fl" id="fontList">
+    <!-- Display -->
+    <div class="fi on" onclick="selFont(this,'Impact')" data-c="display condensed"><span class="fp" style="font-family:Impact;">IMPACT</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Arial Black')" data-c="display"><span class="fp" style="font-family:'Arial Black';">ARIAL BLACK</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Bebas Neue')" data-c="display condensed"><span class="fp" style="font-family:'Bebas Neue';">BEBAS NEUE</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Anton')" data-c="display condensed"><span class="fp" style="font-family:'Anton';">ANTON</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Oswald')" data-c="display condensed"><span class="fp" style="font-family:'Oswald';font-weight:700;">OSWALD BOLD</span><span class="ft">Condensed</span></div>
+    <div class="fi" onclick="selFont(this,'Barlow Condensed')" data-c="display condensed"><span class="fp" style="font-family:'Barlow Condensed';font-weight:900;">BARLOW CONDENSED</span><span class="ft">Condensed</span></div>
+    <div class="fi" onclick="selFont(this,'Montserrat Black')" data-c="display"><span class="fp" style="font-family:'Montserrat';font-weight:900;">MONTSERRAT BLACK</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Russo One')" data-c="display"><span class="fp" style="font-family:'Russo One';">RUSSO ONE</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Exo 2')" data-c="display tech"><span class="fp" style="font-family:'Exo 2';font-weight:900;">EXO 2 BLACK</span><span class="ft">Tech</span></div>
+    <div class="fi" onclick="selFont(this,'Rajdhani')" data-c="display condensed"><span class="fp" style="font-family:'Rajdhani';font-weight:700;">RAJDHANI BOLD</span><span class="ft">Condensed</span></div>
+    <div class="fi" onclick="selFont(this,'Teko')" data-c="display condensed"><span class="fp" style="font-family:'Teko';font-weight:700;">TEKO BOLD</span><span class="ft">Condensed</span></div>
+    <div class="fi" onclick="selFont(this,'Fjalla One')" data-c="display condensed"><span class="fp" style="font-family:'Fjalla One';">FJALLA ONE</span><span class="ft">Condensed</span></div>
+    <div class="fi" onclick="selFont(this,'Bungee')" data-c="display"><span class="fp" style="font-family:'Bungee';">BUNGEE</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Righteous')" data-c="display"><span class="fp" style="font-family:'Righteous';">RIGHTEOUS</span><span class="ft">Display</span></div>
+    <!-- Tech -->
+    <div class="fi" onclick="selFont(this,'Orbitron')" data-c="tech"><span class="fp" style="font-family:'Orbitron';font-weight:700;">ORBITRON</span><span class="ft">Tech/Sci-fi</span></div>
+    <div class="fi" onclick="selFont(this,'Audiowide')" data-c="tech"><span class="fp" style="font-family:'Audiowide';">AUDIOWIDE</span><span class="ft">Tech</span></div>
+    <div class="fi" onclick="selFont(this,'Play')" data-c="tech"><span class="fp" style="font-family:'Play';font-weight:700;">PLAY BOLD</span><span class="ft">Tech</span></div>
+    <div class="fi" onclick="selFont(this,'Space Mono')" data-c="tech"><span class="fp" style="font-family:'Space Mono';font-weight:700;">SPACE MONO</span><span class="ft">Monospace</span></div>
+    <div class="fi" onclick="selFont(this,'Courier New')" data-c="tech"><span class="fp" style="font-family:'Courier New';font-weight:700;">Courier New Bold</span><span class="ft">Monospace</span></div>
+    <!-- Serif -->
+    <div class="fi" onclick="selFont(this,'Georgia')" data-c="serif"><span class="fp" style="font-family:Georgia;font-weight:700;">Georgia Bold</span><span class="ft">Serif</span></div>
+    <div class="fi" onclick="selFont(this,'Times New Roman')" data-c="serif"><span class="fp" style="font-family:'Times New Roman';font-weight:700;">Times New Roman</span><span class="ft">Serif</span></div>
+    <div class="fi" onclick="selFont(this,'Palatino')" data-c="serif"><span class="fp" style="font-family:Palatino;font-weight:700;">Palatino Bold</span><span class="ft">Serif</span></div>
+    <div class="fi" onclick="selFont(this,'Garamond')" data-c="serif"><span class="fp" style="font-family:Garamond;font-weight:700;">Garamond Bold</span><span class="ft">Serif</span></div>
+    <div class="fi" onclick="selFont(this,'Book Antiqua')" data-c="serif"><span class="fp" style="font-family:'Book Antiqua';font-weight:700;">Book Antiqua</span><span class="ft">Serif</span></div>
+    <!-- Handwritten -->
+    <div class="fi" onclick="selFont(this,'Permanent Marker')" data-c="handwritten"><span class="fp" style="font-family:'Permanent Marker';">Permanent Marker</span><span class="ft">Handwritten</span></div>
+    <!-- Sans -->
+    <div class="fi" onclick="selFont(this,'Helvetica Neue')" data-c="display"><span class="fp" style="font-family:'Helvetica Neue';font-weight:900;">Helvetica Neue 900</span><span class="ft">Sans</span></div>
+    <div class="fi" onclick="selFont(this,'Futura')" data-c="display"><span class="fp" style="font-family:Futura,sans-serif;font-weight:700;">FUTURA BOLD</span><span class="ft">Geometric</span></div>
+    <div class="fi" onclick="selFont(this,'Gill Sans')" data-c="display"><span class="fp" style="font-family:'Gill Sans',sans-serif;font-weight:700;">Gill Sans Bold</span><span class="ft">Humanist</span></div>
+    <div class="fi" onclick="selFont(this,'Trebuchet MS')" data-c="display"><span class="fp" style="font-family:'Trebuchet MS';font-weight:700;">Trebuchet MS Bold</span><span class="ft">Humanist</span></div>
+    <div class="fi" onclick="selFont(this,'Verdana')" data-c="display"><span class="fp" style="font-family:Verdana;font-weight:700;">Verdana Bold</span><span class="ft">Sans</span></div>
+    <div class="fi" onclick="selFont(this,'Tahoma')" data-c="display"><span class="fp" style="font-family:Tahoma;font-weight:700;">Tahoma Bold</span><span class="ft">Sans</span></div>
+    <div class="fi" onclick="selFont(this,'Calibri')" data-c="display"><span class="fp" style="font-family:Calibri;font-weight:700;">Calibri Bold</span><span class="ft">Humanist</span></div>
+    <div class="fi" onclick="selFont(this,'Century Gothic')" data-c="display"><span class="fp" style="font-family:'Century Gothic';font-weight:700;">Century Gothic</span><span class="ft">Geometric</span></div>
+    <div class="fi" onclick="selFont(this,'Franklin Gothic')" data-c="display condensed"><span class="fp" style="font-family:'Franklin Gothic Medium',sans-serif;">Franklin Gothic</span><span class="ft">Display</span></div>
+    <div class="fi" onclick="selFont(this,'Rockwell')" data-c="serif"><span class="fp" style="font-family:Rockwell,serif;font-weight:700;">Rockwell Bold</span><span class="ft">Slab Serif</span></div>
+    <div class="fi" onclick="selFont(this,'Black Han Sans')" data-c="display"><span class="fp" style="font-family:'Black Han Sans';">BLACK HAN SANS</span><span class="ft">Display</span></div>
+  </div>
+  <div style="margin-top:10px;">
+    <div class="cr"><span class="cl">Size</span><input type="range" class="ci" min="20" max="300" value="80" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">80px</span></div>
+    <div class="cr"><span class="cl">Tracking</span><input type="range" class="ci" min="-10" max="50" value="4" oninput="this.nextElementSibling.textContent=this.value"/><span class="cv">4</span></div>
+    <div class="cr"><span class="cl">Leading</span><input type="range" class="ci" min="80" max="200" value="120" oninput="this.nextElementSibling.textContent=this.value+'%'"/><span class="cv">120%</span></div>
+    <button class="btn btn-r" onclick="toast('✅ Font applied to clip!')">Apply Font</button>
+  </div>
+</div>
+
+<!-- EFFECTS -->
+<div class="content" id="t-effects">
+  <div class="sec">Visual Effects</div>
+  <div class="fxw">
+    <div class="fx on" onclick="this.classList.toggle('on')">✨ Glow</div>
+    <div class="fx" onclick="this.classList.toggle('on')">⚡ Glitch</div>
+    <div class="fx" onclick="this.classList.toggle('on')">📺 Scanlines</div>
+    <div class="fx" onclick="this.classList.toggle('on')">🎇 Particles</div>
+    <div class="fx" onclick="this.classList.toggle('on')">🌈 RGB Split</div>
+    <div class="fx" onclick="this.classList.toggle('on')">🌫 Motion Blur</div>
+    <div class="fx" onclick="this.classList.toggle('on')">💫 Vignette</div>
+    <div class="fx" onclick="this.classList.toggle('on')">🔥 Fire Trail</div>
+    <div class="fx" onclick="this.classList.toggle('on')">❄️ Freeze</div>
+    <div class="fx" onclick="this.classList.toggle('on')">🎭 Mask</div>
+    <div class="fx" onclick="this.classList.toggle('on')">🔊 Audio React</div>
+    <div class="fx" onclick="this.classList.toggle('on')">💎 Crystallize</div>
+  </div>
+  <div class="sec">Glow Settings</div>
+  <div class="cr"><span class="cl">Intensity</span><input type="range" class="ci" min="0" max="100" value="60" oninput="this.nextElementSibling.textContent=this.value+'%'"/><span class="cv">60%</span></div>
+  <div class="cr"><span class="cl">Color</span><input type="color" class="ci" value="#ffcc00"/><span style="font-size:8px;color:var(--mu);">Glow</span></div>
+  <div class="cr"><span class="cl">Spread</span><input type="range" class="ci" min="0" max="100" value="30" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">30px</span></div>
+  <div class="sec">Glitch Settings</div>
+  <div class="cr"><span class="cl">Amount</span><input type="range" class="ci" min="0" max="100" value="40" oninput="this.nextElementSibling.textContent=this.value+'%'"/><span class="cv">40%</span></div>
+  <div class="cr"><span class="cl">Speed</span><select class="ci"><option>Slow</option><option selected>Medium</option><option>Fast</option><option>Random</option></select></div>
+  <div class="cr"><span class="cl">RGB Shift</span><input type="range" class="ci" min="0" max="20" value="8" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">8px</span></div>
+  <div class="sec">Colors</div>
+  <div class="cr"><span class="cl">Text</span><input type="color" class="ci" value="#ffcc00"/><input type="color" class="ci" value="#ff3c6e" style="margin-left:3px;"/><span style="font-size:8px;color:var(--mu);">Gradient</span></div>
+  <div class="cr"><span class="cl">Outline</span><input type="color" class="ci" value="#000000"/><input type="range" class="ci" min="0" max="10" value="3" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">3px</span></div>
+  <div class="cr"><span class="cl">Shadow</span><input type="color" class="ci" value="#ff2d00"/><input type="range" class="ci" min="0" max="20" value="6" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">6px</span></div>
+  <button class="btn btn-r" onclick="toast('✅ Effects applied to clip!')">Apply Effects</button>
+</div>
+
+<!-- STYLE -->
+<div class="content" id="t-style">
+  <div class="sec">Position & Layout</div>
+  <div class="cr"><span class="cl">Align</span><select class="ci"><option>Center</option><option>Left</option><option>Right</option></select></div>
+  <div class="cr"><span class="cl">Vertical</span><select class="ci"><option>Bottom Safe</option><option>Lower Third</option><option>Center</option><option>Upper Third</option><option>Top Safe</option></select></div>
+  <div class="cr"><span class="cl">X Offset</span><input type="range" class="ci" min="-500" max="500" value="0" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">0px</span></div>
+  <div class="cr"><span class="cl">Y Offset</span><input type="range" class="ci" min="-500" max="500" value="0" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">0px</span></div>
+  <div class="sec">Background</div>
+  <div class="cr"><span class="cl">Type</span><select class="ci"><option>Transparent</option><option>Solid</option><option>Gradient</option><option>Blur</option></select></div>
+  <div class="cr"><span class="cl">Color</span><input type="color" class="ci" value="#000000"/><input type="range" class="ci" min="0" max="100" value="0" oninput="this.nextElementSibling.textContent=this.value+'%'"/><span class="cv">0%</span></div>
+  <div class="cr"><span class="cl">Padding</span><input type="range" class="ci" min="0" max="50" value="10" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">10px</span></div>
+  <div class="cr"><span class="cl">Radius</span><input type="range" class="ci" min="0" max="30" value="6" oninput="this.nextElementSibling.textContent=this.value+'px'"/><span class="cv">6px</span></div>
+  <div class="sec">Animation Timing</div>
+  <div class="cr"><span class="cl">Easing</span><select class="ci"><option>Ease Out</option><option>Ease In</option><option>Ease In Out</option><option>Linear</option><option>Bounce</option><option>Elastic</option></select></div>
+  <div class="cr"><span class="cl">In Dur</span><input type="range" class="ci" min="0.1" max="3" step="0.1" value="0.5" oninput="this.nextElementSibling.textContent=this.value+'s'"/><span class="cv">0.5s</span></div>
+  <div class="cr"><span class="cl">Out Dur</span><input type="range" class="ci" min="0.1" max="3" step="0.1" value="0.3" oninput="this.nextElementSibling.textContent=this.value+'s'"/><span class="cv">0.3s</span></div>
+  <button class="btn btn-r" onclick="toast('✅ Style saved!')">Apply Style</button>
+</div>
+
+<!-- EXPORT -->
+<div class="content" id="t-export">
+  <div class="sec">Export Format</div>
+  <div class="eo on" onclick="selExport(this)"><span class="eo-icon">🎬</span><div><div class="eo-name">Alpha Channel MOV</div><div class="eo-desc">Transparent overlay — import into Premiere</div></div></div>
+  <div class="eo" onclick="selExport(this)"><span class="eo-icon">📝</span><div><div class="eo-name">SRT Subtitle</div><div class="eo-desc">Standard subtitle for any NLE</div></div></div>
+  <div class="eo" onclick="selExport(this)"><span class="eo-icon">📄</span><div><div class="eo-name">VTT File</div><div class="eo-desc">Web caption format</div></div></div>
+  <div class="eo" onclick="selExport(this)"><span class="eo-icon">🎞</span><div><div class="eo-name">4K MP4 Burned</div><div class="eo-desc">Captions baked into video</div></div></div>
+  <div class="eo" onclick="selExport(this)"><span class="eo-icon">📸</span><div><div class="eo-name">PNG Sequence</div><div class="eo-desc">Frame by frame export</div></div></div>
+  <div class="eo" onclick="selExport(this)"><span class="eo-icon">📦</span><div><div class="eo-name">Premiere XML</div><div class="eo-desc">Edit captions inside Premiere</div></div></div>
+  <div style="margin-top:8px;">
+    <div class="cr"><span class="cl">Quality</span><select class="ci"><option>4K (3840×2160)</option><option>1080p HD</option><option>720p</option><option>8K (7680×4320)</option></select></div>
+    <div class="cr"><span class="cl">FPS</span><select class="ci"><option>60 fps</option><option selected>30 fps</option><option>24 fps</option><option>25 fps</option></select></div>
+    <div class="cr"><span class="cl">Codec</span><select class="ci"><option>H.264</option><option>H.265/HEVC</option><option>ProRes 4444</option><option>DNxHD</option><option>Apple ProRes</option></select></div>
+  </div>
+  <button class="btn btn-r" onclick="toast('🚀 Exporting to queue...')">🚀 Export Now</button>
+  <button class="btn btn-p" onclick="toast('📤 Sent to Media Encoder!')">📤 Media Encoder</button>
+  <button class="btn btn-o" onclick="toast('📁 Saved to project folder!')">📁 Save to Folder</button>
+</div>
+
+<div class="footer">
+  <div class="fb">ZAIB_STUDIO</div>
+  <div class="fv">v2.0 · CEP · Premiere Pro</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function sw(tab) {
+  const tabs = ['anim','captions','fonts','effects','style','export'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',tabs[i]===tab));
+  document.querySelectorAll('.content').forEach(c=>c.classList.remove('on'));
+  document.getElementById('t-'+tab).classList.add('on');
+}
+
+function selAnim(el, name) {
+  el.closest('.ag').querySelectorAll('.ac').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  toast('✅ '+name+' selected!');
+  rPreview();
+}
+
+function selFont(el, name) {
+  document.querySelectorAll('.fi').forEach(f=>f.classList.remove('on'));
+  el.classList.add('on');
+  toast('✅ '+name);
+}
+
+function filterCat(el, cat) {
+  document.querySelectorAll('.cats .cat').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.ag .ac').forEach(card=>{
+    const cc = card.dataset.c||'';
+    card.style.display = (cat==='all'||cc.includes(cat)) ? '' : 'none';
+  });
+}
+
+function filterFonts(el, cat) {
+  document.querySelectorAll('.cats .cat').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.fi').forEach(f=>{
+    const fc = f.dataset.c||'';
+    f.style.display = (cat==='all'||fc.includes(cat)) ? '' : 'none';
+  });
+}
+
+function selExport(el) {
+  document.querySelectorAll('.eo').forEach(e=>e.classList.remove('on'));
+  el.classList.add('on');
+}
+
+// Preview
+let pt = 0, praf = null;
+function rPreview() { pt = 0; }
+function runPreview() {
+  const canvas = document.getElementById('pCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  pt = (pt+0.008)%1;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  const text = document.getElementById('pText')?.value || 'ZAIB_BALOCH';
+  const chars = Math.floor(pt*text.length*1.5);
+  const visible = text.substring(0,Math.min(chars,text.length));
+  ctx.font = '700 22px Impact, Arial Black, sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowBlur=15; ctx.shadowColor='#ffcc00';
+  const g = ctx.createLinearGradient(W/2-80,H/2,W/2+80,H/2);
+  g.addColorStop(0,'#ffcc00'); g.addColorStop(1,'#ff3c6e');
+  ctx.fillStyle=g;
+  ctx.fillText(visible+(pt<0.85?(Math.floor(Date.now()/500)%2?'|':' '):''),W/2,H/2);
+  ctx.shadowBlur=0;
+  praf = requestAnimationFrame(runPreview);
+}
+
+function toast(m) {
+  const t=document.getElementById('toast');
+  t.textContent=m; t.style.opacity='1'; t.style.transform='translateX(-50%) translateY(0)';
+  setTimeout(()=>{t.style.opacity='0';t.style.transform='translateX(-50%) translateY(20px)';},2200);
+}
+
+runPreview();
+</script>
+</body>
+</html>
